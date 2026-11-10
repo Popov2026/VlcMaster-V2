@@ -18,6 +18,11 @@ plus besoin de lancer un VLC externe ni d'activer son interface HTTP.
   - chaînes : renommer (F2), masquer (case à cocher), réordonner (▲ ▼ ou Alt+↑/↓), nom d'origine ;
   - moteur : dossier de VLC (détection automatique sinon).
 - **Plein écran** (F, double-clic, Échap pour sortir) ; la barre de commandes réapparaît en approchant la souris du bas de l'écran.
+- **Guide TV** (automatique avec un HDHomeRun, environ 24 h de programmes) :
+  - fenêtre **Guide TV** en grille horaire, avec la ligne « maintenant », l'avancement de chaque émission, et les détails (épisode, durée, résumé) ; double-clic ou Entrée pour regarder ;
+  - programme en cours (avec barre d'avancement) sous chaque chaîne de la liste et dans la barre d'état ;
+  - émission en cours et suivante dans le HUD ;
+  - source : le service guide de SiliconDust (api.hdhomerun.com), interrogé avec l'identifiant de ton tuner ; on peut le désactiver dans Paramètres.
 - **HUD incrusté** sur l'image : numéro et nom de la chaîne, état et résolution, heure, barre de volume (muet, >100 %). Il s'affiche au zapping, au volume, à chaque action, ou avec la touche I ; sa durée se règle dans Paramètres (0 = désactivé).
 - **Bordure fine** : fenêtre sans barre de titre, liseré de 2 px ; on la déplace en glissant l'image et on la redimensionne par les bords. La barre de commandes peut se masquer et réapparaître au survol.
 - **Bouton ▣ Taille** : règle l'image sur une taille prédéfinie (par défaut 1080p, 720p, 480p, 240p, ou `1280x720`…, à définir dans Paramètres). Un clic passe à la suivante, la flèche ouvre la liste.
@@ -41,6 +46,7 @@ plus besoin de lancer un VLC externe ni d'activer son interface HTTP.
 | L | Afficher / masquer la liste des chaînes |
 | P, F2 | Paramètres |
 | I | Afficher le HUD |
+| G | Guide TV (dans le guide : flèches, Entrée = regarder, Début = maintenant, Échap = fermer) |
 | B | Bordure fine / fenêtre normale |
 | T | Taille prédéfinie suivante |
 | A | Premier plan / arrière-plan |
@@ -71,6 +77,7 @@ Résultat : `build\VlcMaster.exe` (exécutable autonome, lié statiquement).
 
 - `src/vlcmaster.c` : application (fenêtre, lecture, paramètres, playlist).
 - `src/libvlc_dyn.h` : liaison dynamique à l'API libVLC 3.x.
+- `src/guide_data.h` / `src/guide_ui.h` : guide TV (téléchargement, mini-lecteur JSON, fenêtre grille).
 - `res/` : manifeste (thèmes, DPI) et informations de version.
 - `legacy/VlcMaster.pyw` : ancienne télécommande Python/tkinter (pilotage HTTP de VLC).
 
