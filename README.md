@@ -1,75 +1,69 @@
 # VlcMaster
-Telecommande de pilotage de VLC pour HD HOMERUN 
 
-📺 VLC Master - Contrôleur IPTV Intelligent
+Lecteur IPTV natif pour **HD HomeRun** (ou toute playlist M3U), écrit en **C / Win32**.
+La vidéo est rendue **directement dans la fenêtre de l'application** grâce à libVLC :
+plus besoin de lancer un VLC externe ni d'activer son interface HTTP.
 
-VLC Master est une interface de contrôle déportée pour VLC, conçue pour piloter un flux IPTV (comme une passerelle HD HOMERUN lineup.m3u) avec une gestion de fenêtres adaptative (Normal, Moyen, Nano, Géant).
+📺 VLC Master 2 — lecteur IPTV intégré
 
-✨ Caractéristiques
+## ✨ Caractéristiques
 
-🎛️ 4 Modes d'Affichage : Basculez instantanément entre une vue complète et un mode "Nano" ultra-discret pour garder vos commandes toujours au-dessus des autres fenêtres.
+- **Vidéo intégrée** : libVLC dessine l'image dans la fenêtre (Direct3D 11, décodage matériel).
+- **Liste des chaînes automatique** : lue depuis `lineup.m3u` (noms et numéros du tuner), affichable / masquable.
+- **Zapping instantané** : ← → , molette, saisie du numéro au clavier ; les appuis rapides sont regroupés.
+- **Bouton ⚙ Paramètres** : fenêtre **redimensionnable** et adaptative (2 colonnes quand elle est large, empilée quand elle est étroite), réglages **appliqués immédiatement** :
+  - source : URL ou fichier de la playlist, rechargement à chaud ;
+  - lecture : cache réseau, décodage matériel (Auto / D3D11VA / DXVA2 / logiciel), désentrelacement (Yadif, Yadif 2x, Bob…), format d'image, synchro audio ;
+  - interface : premier plan, reprise de la dernière chaîne, lecture automatique, liste latérale ;
+  - chaînes : renommer (F2), masquer (case à cocher), réordonner (▲ ▼ ou Alt+↑/↓), nom d'origine ;
+  - moteur : dossier de VLC (détection automatique sinon).
+- **Plein écran** (F, double-clic, Échap pour sortir) ; la barre de commandes réapparaît en approchant la souris du bas de l'écran.
+- **Reconnexion automatique** si le flux est coupé.
+- **Haute résolution (DPI)** gérée par écran, interface entièrement en français.
+- Réglages sauvegardés dans `VlcMaster.ini` (à côté de l'exe, sinon dans `%APPDATA%\VlcMaster`).
 
+## ⌨️ Raccourcis
 
-🔗 Contrôle VLC à distance : Utilise l'interface HTTP de VLC pour gérer la lecture, le plein écran, la pause et le volume.
+| Touche | Action |
+|---|---|
+| ← / → (ou Page préc./suiv.) | Chaîne précédente / suivante |
+| 0-9 | Aller à la chaîne n° (validation auto ou Entrée) |
+| ↑ / ↓, molette sur l'image | Volume |
+| Espace | Pause / lecture |
+| S | Stop |
+| M | Muet |
+| F, F11, double-clic | Plein écran |
+| Échap | Quitter le plein écran |
+| L | Afficher / masquer la liste des chaînes |
+| P, F2 | Paramètres |
+| Clic droit sur l'image | Menu (format d'image, désentrelacement…) |
+| Clic droit sur une chaîne | Regarder / renommer / masquer |
 
+## 🚀 Installation
 
-📡 28 Chaînes Pré-configurées : Accès direct aux chaînes avec possibilité de les renommer via un clic droit.
+Prérequis : **VLC 3.x 64 bits** installé (https://www.videolan.org).
+L'appli trouve VLC toute seule (registre, `Program Files`, dossier de l'exe ou sous-dossier `vlc\`).
+Avec la version « zip » de VLC, il suffit d'indiquer son dossier dans ⚙ Paramètres → *Moteur VLC*.
+Au premier lancement d'un VLC portable, le cache des plugins (`plugins\plugins.dat`) est créé :
+les démarrages suivants sont quasi instantanés.
 
+Lancement : `VlcMaster.exe` (option : `VlcMaster.exe <playlist ou flux>`).
 
-🔊 Gestion intelligente du Volume : Inclut une fonction Mute qui mémorise votre niveau sonore précédent pour un retour au confort immédiat.
+## 🛠️ Compilation
 
+MinGW-w64 64 bits (gcc + windres), aucun SDK VLC nécessaire (libVLC est chargée dynamiquement) :
 
-💾 Sauvegarde Automatique : Vos paramètres (chemin VLC, URL du flux, noms des chaînes) sont automatiquement sauvegardés dans un fichier vlc_config.json.
+```bat
+build.bat
+```
 
+Résultat : `build\VlcMaster.exe` (exécutable autonome, lié statiquement).
 
-🔝 Toujours au premier plan : L'application reste visible au-dessus de vos autres travaux (Topmost).
+## 📂 Structure
 
-🚀 Installation
-Prérequis :
+- `src/vlcmaster.c` : application (fenêtre, lecture, paramètres, playlist).
+- `src/libvlc_dyn.h` : liaison dynamique à l'API libVLC 3.x.
+- `res/` : manifeste (thèmes, DPI) et informations de version.
+- `legacy/VlcMaster.pyw` : ancienne télécommande Python/tkinter (pilotage HTTP de VLC).
 
-Python 3.x installé.
-
-VLC Media Player installé sur votre PC.
-
-Configuration de VLC :
-
-Allez dans Outils > Préférences > Tous (en bas à gauche).
-
-Interface > Interfaces principales > Cochez Web.
-
-
-Interface > Interfaces principales > Lua > Entrez un mot de passe (par défaut dans le script : pass).
-
-
-Lancement :
-
-Bash
-python Vlcmaster.pyw
-
-🛠️ Utilisation
-
-Bouton 🚀 LANCER : Ouvre VLC avec votre flux réseau.
-
-
-Bouton + (Jaune) : Change cycliquement la taille de l'interface.
-
-
-Clic Gauche sur une chaîne : Change de chaîne immédiatement.
-
-
-Clic Droit sur une chaîne : Renomme la chaîne pour personnaliser votre grille.
-
-
-Touches Fléchées : Utilisez Gauche / Droite sur votre clavier pour zapper.
-
-📂 Structure des fichiers
-
-Vlcmaster.pyw : Le script principal (l'extension .pyw permet un lancement sans console Windows).
-
-
-vlc_config.json : Fichier de configuration généré automatiquement pour vos réglages.
-
-
-👨‍💻 Note technique
-L'application utilise la bibliothèque standard tkinter pour l'interface graphique et urllib pour communiquer avec l'API HTTP de VLC, garantissant une légèreté maximale sans dépendances lourdes.
-By Popov et Gemini ©2026
+By Popov ©2026

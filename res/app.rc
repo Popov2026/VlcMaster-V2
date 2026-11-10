@@ -1,0 +1,30 @@
+#include <winver.h>
+
+/* ID 2 : activé au démarrage via CreateActCtx (évite le conflit avec le
+   manifeste par défaut ID 1 que MinGW ajoute automatiquement). */
+2 24 "app.manifest"
+
+1 VERSIONINFO
+FILEVERSION     2,0,0,0
+PRODUCTVERSION  2,0,0,0
+FILEOS          0x40004
+FILETYPE        0x1
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040C04B0"
+    BEGIN
+      VALUE "CompanyName",      "Popov"
+      VALUE "FileDescription",  "VLC Master - lecteur IPTV (libVLC)"
+      VALUE "FileVersion",      "2.0.0"
+      VALUE "ProductName",      "VLC Master"
+      VALUE "ProductVersion",   "2.0.0"
+      VALUE "LegalCopyright",   "Popov 2026"
+      VALUE "OriginalFilename", "VlcMaster.exe"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x040C, 1200
+  END
+END
