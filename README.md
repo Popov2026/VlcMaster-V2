@@ -18,6 +18,10 @@ plus besoin de lancer un VLC externe ni d'activer son interface HTTP.
   - chaînes : renommer (F2), masquer (case à cocher), réordonner (▲ ▼ ou Alt+↑/↓), nom d'origine ;
   - moteur : dossier de VLC (détection automatique sinon).
 - **Plein écran** (F, double-clic, Échap pour sortir) ; la barre de commandes réapparaît en approchant la souris du bas de l'écran.
+- **HUD incrusté** sur l'image : numéro et nom de la chaîne, état et résolution, heure, barre de volume (muet, >100 %). Il s'affiche au zapping, au volume, à chaque action, ou avec la touche I ; sa durée se règle dans Paramètres (0 = désactivé).
+- **Bordure fine** : fenêtre sans barre de titre, liseré de 2 px ; on la déplace en glissant l'image et on la redimensionne par les bords. La barre de commandes peut se masquer et réapparaître au survol.
+- **Bouton ▣ Taille** : règle l'image sur une taille prédéfinie (par défaut 1080p, 720p, 480p, 240p, ou `1280x720`…, à définir dans Paramètres). Un clic passe à la suivante, la flèche ouvre la liste.
+- **Bouton Premier plan / Arrière-plan** : garder la fenêtre au-dessus des autres, ou non.
 - **Reconnexion automatique** si le flux est coupé.
 - **Haute résolution (DPI)** gérée par écran, interface entièrement en français.
 - Réglages sauvegardés dans `VlcMaster.ini` (à côté de l'exe, sinon dans `%APPDATA%\VlcMaster`).
@@ -36,6 +40,10 @@ plus besoin de lancer un VLC externe ni d'activer son interface HTTP.
 | Échap | Quitter le plein écran |
 | L | Afficher / masquer la liste des chaînes |
 | P, F2 | Paramètres |
+| I | Afficher le HUD |
+| B | Bordure fine / fenêtre normale |
+| T | Taille prédéfinie suivante |
+| A | Premier plan / arrière-plan |
 | Clic droit sur l'image | Menu (format d'image, désentrelacement…) |
 | Clic droit sur une chaîne | Regarder / renommer / masquer |
 

@@ -40,19 +40,21 @@
 /* Identifiants                                                        */
 /* ------------------------------------------------------------------ */
 enum { WM_APP_VLCREADY = WM_APP + 1, WM_APP_VLCEVENT, WM_APP_PLAYLIST, WM_APP_WORKERDONE };
-enum { TMR_FS = 1, TMR_DIGITS, TMR_RETRY, TMR_REPLAY, TMR_FORCEQUIT, TMR_FLASH, TMR_SIZE };
+enum { TMR_FS = 1, TMR_DIGITS, TMR_RETRY, TMR_REPLAY, TMR_FORCEQUIT, TMR_FLASH, TMR_SIZE, TMR_HUD };
 
 enum {
     IDC_HOST = 100, IDC_LIST, IDC_PREV, IDC_NEXT, IDC_PAUSE, IDC_STOP, IDC_VOL,
-    IDC_MUTE, IDC_STATUS, IDC_CHANS, IDC_FULL, IDC_SETTINGS,
+    IDC_MUTE, IDC_STATUS, IDC_CHANS, IDC_FULL, IDC_SETTINGS, IDC_SIZEBTN, IDC_TOPBTN,
 
     IDS_URL = 200, IDS_URLBROWSE, IDS_RELOAD, IDS_CACHE, IDS_CACHESPIN, IDS_HW,
     IDS_DEINT, IDS_ASPECT, IDS_DELAY, IDS_DELAYSPIN, IDS_TOPMOST, IDS_RESUME,
     IDS_AUTOPLAY, IDS_SHOWLIST, IDS_VLCDIR, IDS_VLCBROWSE, IDS_LV, IDS_UP,
     IDS_DOWN, IDS_RENAME, IDS_ORIGNAME, IDS_SHOWALL, IDS_CLOSE,
+    IDS_THIN, IDS_THINBAR, IDS_SIZES, IDS_HUD, IDS_HUDSPIN,
 
     IDM_PLAY = 300, IDM_RENAME, IDM_HIDE,
-    IDM_ASPECT0 = 400, IDM_DEINT0 = 450
+    IDM_ASPECT0 = 400, IDM_DEINT0 = 450,
+    IDM_SIZEDEF = 499, IDM_SIZE0 = 500, IDM_THIN = 600, IDM_MINIMIZE, IDM_QUIT
 };
 
 /* ------------------------------------------------------------------ */
@@ -108,6 +110,8 @@ static struct {
     wchar_t vlcdir[MAX_PATH];
     int caching, hw, deint, aspect, delay, volume, muted;
     int topmost, resume, autoplay, showlist;
+    int thin, thinHideBar, sizeIdx, hudSecs;
+    wchar_t sizes[256];
     unsigned long long lastkey;
     RECT mainrc; int mainmax; RECT setrc;
 } C;
@@ -115,6 +119,7 @@ static struct {
 static HINSTANCE g_hi;
 static wchar_t   g_ini[MAX_PATH], g_exedir[MAX_PATH];
 
+static HWND  g_hud;
 static HWND  g_main, g_host, g_list, g_status, g_vol, g_tip, g_set;
 static HFONT g_font, g_fontBig;
 static UINT  g_dpi = 96;
@@ -135,6 +140,7 @@ static DWORD   g_flashUntil;
 static int     g_full, g_fsBar; static DWORD g_fsLastNear; static WINDOWPLACEMENT g_wpPrev;
 static wchar_t g_digits[8];
 static int     g_menuCh = -1;
+static RECT    g_sizeMoveRc;
 
 /* thread VLC */
 static libvlc_instance_t     *g_inst;
@@ -149,6 +155,7 @@ static struct {
     HWND lblUrl, url, urlBr, reload;
     HWND lblCache, cache, cacheSp, lblHw, hw, lblDeint, deint, lblAsp, aspect, lblDelay, delay, delaySp;
     HWND topmost, resume, autoplay, showlist;
+    HWND thin, thinbar, lblSizes, sizes, lblHud, hud, hudSp;
     HWND lblVlc, vlcdir, vlcBr, vlcInfo;
     HWND lv, up, down, rename, orig, showall, hint, close;
 } U;
@@ -289,6 +296,11 @@ static void LoadConfig(void)
     C.resume   = IniInt(L"Interface", L"Reprendre", 1) != 0;
     C.autoplay = IniInt(L"Interface", L"LectureAuto", 1) != 0;
     C.showlist = IniInt(L"Interface", L"ListeChaines", 1) != 0;
+    C.thin     = IniInt(L"Interface", L"BordureFine", 0) != 0;
+    C.thinHideBar = IniInt(L"Interface", L"BarreAutoMasquee", 1) != 0;
+    C.sizeIdx  = IniInt(L"Fenetres", L"TailleIdx", -1);
+    C.hudSecs  = Clamp(IniInt(L"Interface", L"HudSecondes", 3), 0, 60);
+    GetPrivateProfileStringW(L"Fenetres", L"Tailles", L"1080p, 720p, 480p, 240p", C.sizes, 256, g_ini);
     C.mainmax  = IniInt(L"Fenetres", L"PrincipaleMax", 0) != 0;
     wchar_t b[32]; GetPrivateProfileStringW(L"General", L"Derniere", L"0", b, 32, g_ini);
     C.lastkey = wcstoull(b, NULL, 16);
@@ -313,6 +325,11 @@ static void SaveConfig(void)
     IniPutInt(L"Interface", L"Reprendre", C.resume);
     IniPutInt(L"Interface", L"LectureAuto", C.autoplay);
     IniPutInt(L"Interface", L"ListeChaines", C.showlist);
+    IniPutInt(L"Interface", L"BordureFine", C.thin);
+    IniPutInt(L"Interface", L"BarreAutoMasquee", C.thinHideBar);
+    IniPutInt(L"Fenetres", L"TailleIdx", C.sizeIdx);
+    IniPutInt(L"Interface", L"HudSecondes", C.hudSecs);
+    WritePrivateProfileStringW(L"Fenetres", L"Tailles", C.sizes, g_ini);
     IniPutInt(L"Fenetres", L"PrincipaleMax", C.mainmax);
     if (!IsRectEmpty(&C.mainrc)) IniPutRect(L"Principale", &C.mainrc);
     if (!IsRectEmpty(&C.setrc))  IniPutRect(L"Parametres", &C.setrc);
@@ -635,6 +652,7 @@ static void StartVlc(void)
 /* Lecture                                                             */
 /* ------------------------------------------------------------------ */
 static void UpdateStatus(void);
+static void ShowHud(void);
 static void SettingsSync(void);
 static void FillLV(void);
 
@@ -650,6 +668,7 @@ static void Flash(const wchar_t *t)
     g_flashUntil = GetTickCount() + 1500;
     SetTimer(g_main, TMR_FLASH, 1600, NULL);
     UpdateStatus();
+    ShowHud();
 }
 
 static void SetState(const wchar_t *s) { wcsncpy(g_state, s, 95); g_state[95] = 0; UpdateStatus(); }
@@ -726,6 +745,7 @@ static void PlayChannel(int i)
     g_size[0] = 0;
     SetState(L"Ouverture…");
     RequestPlayCur();
+    ShowHud();
 }
 
 static int VisPos(int ch)
@@ -883,32 +903,172 @@ static void OnPlaylist(WPARAM gen, PlResult *r)
 /* ------------------------------------------------------------------ */
 static void LayoutMain(void);
 
+/* Style de la fenêtre principale selon le mode (normal / bordure fine / plein écran). */
+static DWORD MainStyle(void)
+{
+    DWORD base = WS_CLIPCHILDREN | (IsWindowVisible(g_main) ? WS_VISIBLE : 0);
+    if (g_full) return base | WS_POPUP;
+    if (C.thin) return base | WS_POPUP | WS_SYSMENU | WS_MINIMIZEBOX;
+    return base | WS_OVERLAPPEDWINDOW;
+}
+
+static int ThinFrame(void) { return C.thin && !g_full; }
+static int ThinB(void)     { return ThinFrame() ? S(2) : 0; }       /* liseré visible */
+static int AutoBar(void)   { return g_full || (C.thin && C.thinHideBar); }
+
+static void UpdateAutoBar(void)
+{
+    if (AutoBar()) SetTimer(g_main, TMR_FS, 200, NULL);
+    else { KillTimer(g_main, TMR_FS); g_fsBar = 0; }
+}
+
+/* Coins arrondis Windows 11 aussi en bordure fine (sans effet ailleurs). */
+static void ApplyCorners(void)
+{
+    typedef HRESULT (WINAPI *DwmSetAttr)(HWND, DWORD, LPCVOID, DWORD);
+    static DwmSetAttr fn; static int tried;
+    if (!tried) {
+        tried = 1;
+        HMODULE m = LoadLibraryW(L"dwmapi.dll");
+        if (m) fn = (DwmSetAttr)(void (*)(void))GetProcAddress(m, "DwmSetWindowAttribute");
+    }
+    if (!fn) return;
+    DWORD pref = g_full ? 1 /* DWMWCP_DONOTROUND */ : 2 /* DWMWCP_ROUND */;
+    fn(g_main, 33 /* DWMWA_WINDOW_CORNER_PREFERENCE */, &pref, sizeof pref);
+}
+
 static void SetFullscreen(int on)
 {
     if (on == g_full) return;
-    LONG st = GetWindowLongW(g_main, GWL_STYLE);
     if (on) {
         g_wpPrev.length = sizeof g_wpPrev;
         GetWindowPlacement(g_main, &g_wpPrev);
         MONITORINFO mi = { sizeof mi };
         GetMonitorInfoW(MonitorFromWindow(g_main, MONITOR_DEFAULTTONEAREST), &mi);
         g_full = 1; g_fsBar = 0;
-        SetWindowLongW(g_main, GWL_STYLE, (st & ~WS_OVERLAPPEDWINDOW) | WS_POPUP);
+        SetWindowLongW(g_main, GWL_STYLE, (LONG)MainStyle());
         SetWindowPos(g_main, NULL, mi.rcMonitor.left, mi.rcMonitor.top,
                      mi.rcMonitor.right - mi.rcMonitor.left, mi.rcMonitor.bottom - mi.rcMonitor.top,
                      SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
-        SetTimer(g_main, TMR_FS, 200, NULL);
     } else {
         g_full = 0;
-        KillTimer(g_main, TMR_FS);
-        SetWindowLongW(g_main, GWL_STYLE, (st & ~WS_POPUP) | WS_OVERLAPPEDWINDOW);
+        SetWindowLongW(g_main, GWL_STYLE, (LONG)MainStyle());
         SetWindowPlacement(g_main, &g_wpPrev);
         SetWindowPos(g_main, NULL, 0, 0, 0, 0,
                      SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
     }
+    ApplyCorners();
+    UpdateAutoBar();
     SetDlgItemTextW(g_main, IDC_FULL, g_full ? L"Fenêtre" : L"Plein écran");
     LayoutMain();
     SetFocus(g_main);
+}
+
+/* Bascule bordure fine : la zone cliente (donc l'image) garde sa place à l'écran. */
+static void SetThin(int on)
+{
+    on = !!on;
+    if (on == C.thin) return;
+    if (g_full) { C.thin = on; SettingsSync(); return; }   /* appliqué en sortant du plein écran */
+    if (IsZoomed(g_main)) ShowWindow(g_main, SW_RESTORE);
+    RECT r; GetClientRect(g_main, &r);
+    MapWindowPoints(g_main, NULL, (POINT *)&r, 2);
+    C.thin = on;
+    DWORD st = MainStyle();
+    SetWindowLongW(g_main, GWL_STYLE, (LONG)st);
+    if (!on) AdjustWindowRectExForDpi(&r, st, FALSE, (DWORD)GetWindowLongW(g_main, GWL_EXSTYLE), g_dpi);
+    SetWindowPos(g_main, NULL, r.left, r.top, r.right - r.left, r.bottom - r.top,
+                 SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    ApplyCorners();
+    UpdateAutoBar();
+    LayoutMain();
+    SettingsSync();
+    Flash(on ? L"Bordure fine  (B pour revenir)" : L"Fenêtre normale");
+}
+
+/* ---- Tailles prédéfinies : « 1080p » = image 1920×1080, ou « 1280x720 » ---- */
+typedef struct { wchar_t label[24]; int w, h; } SizePreset;
+
+static int ParseSizes(SizePreset *out, int max)
+{
+    wchar_t buf[256]; wcsncpy(buf, C.sizes, 255); buf[255] = 0;
+    int n = 0; wchar_t *ctx = NULL;
+    for (wchar_t *t = wcstok(buf, L",; \t", &ctx); t && n < max; t = wcstok(NULL, L",; \t", &ctx)) {
+        for (wchar_t *q = t; *q; q++) if (*q == L'\u00D7' || *q == L'X') *q = L'x';
+        int w = 0, h = 0;
+        size_t len = wcslen(t);
+        if (len > 1 && (t[len-1] == L'p' || t[len-1] == L'P')) {
+            h = _wtoi(t);
+            w = ((h * 16) / 9 + 1) & ~1;        /* 16:9, largeur paire */
+        } else if (swscanf(t, L"%dx%d", &w, &h) != 2) continue;
+        if (w < 64 || h < 64 || w > 8192 || h > 8192) continue;
+        if (len > 1 && (t[len-1] == L'p' || t[len-1] == L'P')) swprintf(out[n].label, 24, L"%dp", h);
+        else swprintf(out[n].label, 24, L"%d\u00D7%d", w, h);
+        out[n].w = w; out[n].h = h; n++;
+    }
+    return n;
+}
+
+static void UpdateSizeButton(void)
+{
+    SizePreset ps[16]; int n = ParseSizes(ps, 16);
+    wchar_t t[40];
+    if (C.sizeIdx >= 0 && C.sizeIdx < n) swprintf(t, 40, L"\u25A3  %ls", ps[C.sizeIdx].label);
+    else wcscpy(t, L"\u25A3  Taille");
+    SetDlgItemTextW(g_main, IDC_SIZEBTN, t);
+}
+
+static void ApplySizePreset(int idx)
+{
+    SizePreset ps[16]; int n = ParseSizes(ps, 16);
+    if (!n) { Flash(L"Aucune taille définie (\u2699 Paramètres)"); return; }
+    if (idx < 0 || idx >= n) idx = 0;
+    if (g_full) SetFullscreen(0);
+    if (IsZoomed(g_main) || IsIconic(g_main)) ShowWindow(g_main, SW_RESTORE);
+
+    /* Taille cliente = image demandée + liste + barre (si fixe) + liseré. */
+    int b = ThinB();
+    int listW = C.showlist ? S(240) : 0;
+    int barH = AutoBar() ? 0 : S(46);
+    RECT r = { 0, 0, ps[idx].w + listW + 2 * b, ps[idx].h + barH + 2 * b };
+    DWORD st = (DWORD)GetWindowLongW(g_main, GWL_STYLE);
+    if (!C.thin) AdjustWindowRectExForDpi(&r, st, FALSE, (DWORD)GetWindowLongW(g_main, GWL_EXSTYLE), g_dpi);
+    int w = r.right - r.left, h = r.bottom - r.top;
+
+    /* Centrée sur la position actuelle, contenue dans l'écran de travail. */
+    RECT cur; GetWindowRect(g_main, &cur);
+    MONITORINFO mi = { sizeof mi };
+    GetMonitorInfoW(MonitorFromWindow(g_main, MONITOR_DEFAULTTONEAREST), &mi);
+    RECT wa = mi.rcWork;
+    int clipped = 0;
+    if (w > wa.right - wa.left) { w = wa.right - wa.left; clipped = 1; }
+    if (h > wa.bottom - wa.top) { h = wa.bottom - wa.top; clipped = 1; }
+    int x = (cur.left + cur.right - w) / 2, y = (cur.top + cur.bottom - h) / 2;
+    if (x < wa.left) x = wa.left;
+    if (y < wa.top) y = wa.top;
+    if (x + w > wa.right) x = wa.right - w;
+    if (y + h > wa.bottom) y = wa.bottom - h;
+    SetWindowPos(g_main, NULL, x, y, w, h, SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE);
+
+    C.sizeIdx = idx;
+    UpdateSizeButton();
+    wchar_t t[96];
+    swprintf(t, 96, clipped ? L"Image %d\u00D7%d : limitée par l'écran" : L"Image %d\u00D7%d", ps[idx].w, ps[idx].h);
+    Flash(t);
+}
+
+static void ShowSizeMenu(int x, int y, UINT align)
+{
+    SizePreset ps[16]; int n = ParseSizes(ps, 16);
+    HMENU m = CreatePopupMenu();
+    for (int i = 0; i < n; i++) {
+        wchar_t t[64]; swprintf(t, 64, L"%ls\t%d\u00D7%d", ps[i].label, ps[i].w, ps[i].h);
+        AppendMenuW(m, MF_STRING | (C.sizeIdx == i ? MF_CHECKED : 0), IDM_SIZE0 + i, t);
+    }
+    if (n) AppendMenuW(m, MF_SEPARATOR, 0, NULL);
+    AppendMenuW(m, MF_STRING, IDM_SIZEDEF, L"Définir les tailles…");
+    TrackPopupMenu(m, TPM_RIGHTBUTTON | align, x, y, 0, g_main, NULL);
+    DestroyMenu(m);
 }
 
 static void FsTick(void)
@@ -939,21 +1099,24 @@ static const BarItem BAR[] = {
     { IDC_STATUS,   NULL,            NULL,                                     90, 6, 0 },
     { IDC_SETTINGS, L"⚙  Paramètres", L"Paramètres  (P)",                     118, 0, 1 },
     { IDC_FULL,     L"Plein écran",  L"Plein écran  (F, double-clic, Échap)",  100, 2, 1 },
+    { IDC_SIZEBTN,     L"\u25A3  Taille", L"Taille prédéfinie de l'image  (T = suivante, flèche = choisir)", 108, 3, 1 },
+    { IDC_TOPBTN,   L"\u25BD  Arrière-plan", L"Toujours au premier plan / fenêtre normale  (A)", 122, 4, 1 },
     { IDC_CHANS,    L"☰  Chaînes",   L"Afficher / masquer la liste  (L)",      98, 5, 1 },
 };
 
 static void LayoutMain(void)
 {
     RECT rc; GetClientRect(g_main, &rc);
-    int W = rc.right, H = rc.bottom;
-    int showBar = !g_full || g_fsBar;
+    int b = ThinB();                       /* liseré de la bordure fine */
+    int W = rc.right - 2 * b, H = rc.bottom - 2 * b;
+    int showBar = !AutoBar() || g_fsBar;
     int barH = showBar ? S(46) : 0;
     int listW = (C.showlist && !g_full) ? S(240) : 0;
     if (listW > W / 2) listW = W / 2;
 
-    HDWP d = BeginDeferWindowPos(16);
-    d = DeferWindowPos(d, g_host, NULL, 0, 0, W - listW, H - barH, SWP_NOZORDER | SWP_NOACTIVATE);
-    d = DeferWindowPos(d, g_list, NULL, W - listW, 0, listW, H - barH,
+    HDWP d = BeginDeferWindowPos(18);
+    d = DeferWindowPos(d, g_host, NULL, b, b, W - listW, H - barH, SWP_NOZORDER | SWP_NOACTIVATE);
+    d = DeferWindowPos(d, g_list, NULL, b + W - listW, b, listW, H - barH,
                        SWP_NOZORDER | SWP_NOACTIVATE | (listW ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
 
     /* Barre : on masque les éléments les moins prioritaires si la place manque. */
@@ -963,8 +1126,8 @@ static void LayoutMain(void)
         for (int i = 0; i < COUNT(BAR); i++) if (BAR[i].prio <= level) tot += S(BAR[i].w) + gap;
         if (tot - gap <= avail) break;
     }
-    int bh = S(30), by = H - barH + (barH - bh) / 2;
-    int xl = pad, xr = W - pad;
+    int bh = S(30), by = b + H - barH + (barH - bh) / 2;
+    int xl = b + pad, xr = b + W - pad;
     for (int i = 0; i < COUNT(BAR); i++) {
         if (BAR[i].id == IDC_STATUS || BAR[i].right) continue;
         HWND h = GetDlgItem(g_main, BAR[i].id);
@@ -1005,11 +1168,23 @@ static void UpdateStatus(void)
     else wcscpy(title, APP_NAME L" " APP_VER);
     SetWindowTextW(g_main, title);
     SetDlgItemTextW(g_main, IDC_PAUSE, g_paused ? L"Lecture" : L"Pause");
+    if (g_hud && IsWindowVisible(g_hud)) InvalidateRect(g_hud, NULL, FALSE);
 }
 
 static void ApplyTopmost(void)
 {
     SetWindowPos(g_main, C.topmost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    HWND b = GetDlgItem(g_main, IDC_TOPBTN);
+    Button_SetCheck(b, C.topmost ? BST_CHECKED : BST_UNCHECKED);
+    SetWindowTextW(b, C.topmost ? L"\u25B2  Premier plan" : L"\u25BD  Arrière-plan");
+}
+
+static void SetTopmost(int on)
+{
+    C.topmost = !!on;
+    ApplyTopmost();
+    SettingsSync();
+    Flash(C.topmost ? L"Toujours au premier plan" : L"Fenêtre normale (arrière-plan possible)");
 }
 
 static void ApplyMainFonts(void)
@@ -1068,6 +1243,144 @@ static void OnVlcEvent(int type, int val)
 
 static void OpenSettings(int editCh);
 
+/* ------------------------------------------------------------------ */
+/* HUD : incrustation (chaîne, état, heure, volume) au-dessus de l'image */
+/* ------------------------------------------------------------------ */
+static HFONT g_hudBig, g_hudSmall;
+static UINT  g_hudDpi;
+
+static void HudFonts(void)
+{
+    if (g_hudBig && g_hudDpi == g_dpi) return;
+    if (g_hudBig) DeleteObject(g_hudBig);
+    if (g_hudSmall) DeleteObject(g_hudSmall);
+    g_hudBig = MakeFont(g_dpi, 17, FW_SEMIBOLD);
+    g_hudSmall = MakeFont(g_dpi, 10, FW_NORMAL);
+    g_hudDpi = g_dpi;
+}
+
+static void HideHud(void)
+{
+    if (!g_hud) return;
+    KillTimer(g_main, TMR_HUD);
+    ShowWindow(g_hud, SW_HIDE);
+}
+
+/* Place le HUD en haut à gauche de la zone vidéo (suit fenêtre, plein écran, bordure fine). */
+static void HudPlace(void)
+{
+    if (!g_hud) return;
+    if (!IsWindowVisible(g_main) || IsIconic(g_main) || !IsWindowVisible(g_host)) { ShowWindow(g_hud, SW_HIDE); return; }
+    RECT r; GetWindowRect(g_host, &r);
+    int m = S(16), w = S(460), hh = S(108);
+    if (w > r.right - r.left - 2 * m) w = r.right - r.left - 2 * m;
+    if (w < S(180) || hh > r.bottom - r.top - 2 * m) { ShowWindow(g_hud, SW_HIDE); return; }
+    SetWindowRgn(g_hud, CreateRoundRectRgn(0, 0, w + 1, hh + 1, S(18), S(18)), FALSE);
+    SetWindowPos(g_hud, HWND_TOP, r.left + m, r.top + m, w, hh, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    InvalidateRect(g_hud, NULL, FALSE);
+}
+
+static void ShowHud(void)
+{
+    if (!g_hud || g_quitting) return;
+    if (C.hudSecs <= 0) { HideHud(); return; }
+    HudFonts();
+    HudPlace();
+    SetTimer(g_main, TMR_HUD, (UINT)C.hudSecs * 1000u, NULL);
+}
+
+static void HudPaint(HDC dc, int W, int H)
+{
+    HBRUSH bg = CreateSolidBrush(RGB(16, 17, 22));
+    RECT rc = { 0, 0, W, H }; FillRect(dc, &rc, bg); DeleteObject(bg);
+    HBRUSH ac = CreateSolidBrush(RGB(0, 120, 215));
+    RECT a = { 0, 0, S(6), H }; FillRect(dc, &a, ac); DeleteObject(ac);
+    SetBkMode(dc, TRANSPARENT);
+    int x = S(22), right = W - S(18), y = S(10);
+
+    /* Ligne 1 : numéro + nom de la chaîne, heure à droite */
+    wchar_t num[16] = L"", clk[8];
+    const wchar_t *name = L"Aucune chaîne";
+    if (g_cur >= 0 && g_cur < g_nch) {
+        const Channel *c = &g_ch[g_cur];
+        int v = VisPos(g_cur);
+        if (c->num[0]) wcscpy(num, c->num); else swprintf(num, 16, L"%d", v + 1);
+        name = c->name;
+        size_t n = wcslen(num);
+        if (!wcsncmp(name, num, n) && name[n] == L' ') { name += n; while (*name == L' ') name++; }
+    }
+    SYSTEMTIME st; GetLocalTime(&st); swprintf(clk, 8, L"%02u:%02u", st.wHour, st.wMinute);
+    SelectObject(dc, g_hudSmall);
+    RECT ck = { x, y + S(6), right, y + S(30) };
+    SetTextColor(dc, RGB(150, 150, 160));
+    DrawTextW(dc, clk, -1, &ck, DT_RIGHT | DT_SINGLELINE | DT_NOPREFIX);
+    SIZE cs; GetTextExtentPoint32W(dc, clk, (int)wcslen(clk), &cs);
+    SelectObject(dc, g_hudBig);
+    RECT t = { x, y, right - cs.cx - S(12), y + S(34) };
+    if (num[0]) {
+        SetTextColor(dc, RGB(64, 170, 255));
+        DrawTextW(dc, num, -1, &t, DT_LEFT | DT_SINGLELINE | DT_NOPREFIX);
+        SIZE ns; GetTextExtentPoint32W(dc, num, (int)wcslen(num), &ns);
+        t.left += ns.cx + S(14);
+    }
+    SetTextColor(dc, RGB(245, 245, 250));
+    DrawTextW(dc, name, -1, &t, DT_LEFT | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
+
+    /* Ligne 2 : message éphémère, sinon état · résolution */
+    y += S(38);
+    wchar_t l2[160];
+    if (GetTickCount() < g_flashUntil) wcsncpy(l2, g_flash, 159), l2[159] = 0;
+    else swprintf(l2, 160, L"%ls%ls%ls", g_state, g_size[0] ? L"   ·   " : L"", g_size);
+    SelectObject(dc, g_hudSmall);
+    SetTextColor(dc, RGB(190, 190, 200));
+    RECT t2 = { x, y, right, y + S(22) };
+    DrawTextW(dc, l2, -1, &t2, DT_LEFT | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
+
+    /* Ligne 3 : volume (barre 0-150 %, repère à 100 %) */
+    y += S(28);
+    const wchar_t *lbl = C.muted ? L"Muet" : L"Volume";
+    wchar_t pct[16]; swprintf(pct, 16, L"%d %%", C.volume);
+    SetTextColor(dc, C.muted ? RGB(255, 95, 95) : RGB(190, 190, 200));
+    RECT l3 = { x, y - S(2), x + S(70), y + S(18) };
+    DrawTextW(dc, lbl, -1, &l3, DT_LEFT | DT_SINGLELINE | DT_NOPREFIX);
+    RECT p3 = { right - S(60), y - S(2), right, y + S(18) };
+    DrawTextW(dc, pct, -1, &p3, DT_RIGHT | DT_SINGLELINE | DT_NOPREFIX);
+    int bx0 = x + S(72), bx1 = right - S(68), by = y + S(4), bh = S(8);
+    if (bx1 > bx0) {
+        HBRUSH tr = CreateSolidBrush(RGB(58, 60, 70));
+        RECT bar = { bx0, by, bx1, by + bh }; FillRect(dc, &bar, tr); DeleteObject(tr);
+        int fill = bx0 + (bx1 - bx0) * C.volume / 150;
+        HBRUSH fb = CreateSolidBrush(C.muted ? RGB(110, 110, 118) : (C.volume > 100 ? RGB(255, 170, 40) : RGB(0, 140, 255)));
+        RECT f = { bx0, by, fill, by + bh }; FillRect(dc, &f, fb); DeleteObject(fb);
+        int mark = bx0 + (bx1 - bx0) * 100 / 150;
+        HBRUSH mb = CreateSolidBrush(RGB(220, 220, 230));
+        RECT mk = { mark, by - S(3), mark + S(2), by + bh + S(3) }; FillRect(dc, &mk, mb); DeleteObject(mb);
+    }
+}
+
+static LRESULT CALLBACK HudProc(HWND h, UINT msg, WPARAM w, LPARAM l)
+{
+    switch (msg) {
+    case WM_NCHITTEST: return HTTRANSPARENT;
+    case WM_MOUSEACTIVATE: return MA_NOACTIVATE;
+    case WM_ERASEBKGND: return 1;
+    case WM_PAINT: {
+        PAINTSTRUCT ps; HDC dc = BeginPaint(h, &ps);
+        RECT rc; GetClientRect(h, &rc);
+        HDC md = CreateCompatibleDC(dc);
+        HBITMAP bm = CreateCompatibleBitmap(dc, rc.right, rc.bottom);
+        HGDIOBJ ob = SelectObject(md, bm);
+        HGDIOBJ of = SelectObject(md, g_hudSmall);
+        HudPaint(md, rc.right, rc.bottom);
+        BitBlt(dc, 0, 0, rc.right, rc.bottom, md, 0, 0, SRCCOPY);
+        SelectObject(md, of); SelectObject(md, ob);
+        DeleteObject(bm); DeleteDC(md);
+        EndPaint(h, &ps);
+        return 0; }
+    }
+    return DefWindowProcW(h, msg, w, l);
+}
+
 static void ShowVideoMenu(int x, int y)
 {
     HMENU m = CreatePopupMenu(), a = CreatePopupMenu(), dm = CreatePopupMenu();
@@ -1084,9 +1397,46 @@ static void ShowVideoMenu(int x, int y)
     AppendMenuW(m, MF_POPUP, (UINT_PTR)a, L"Format d'image");
     AppendMenuW(m, MF_POPUP, (UINT_PTR)dm, L"Désentrelacement");
     AppendMenuW(m, MF_SEPARATOR, 0, NULL);
+    AppendMenuW(m, MF_STRING | (C.thin ? MF_CHECKED : 0), IDM_THIN, L"Bordure fine\tB");
+    {
+        HMENU sz = CreatePopupMenu();
+        SizePreset ps[16]; int n = ParseSizes(ps, 16);
+        for (int i = 0; i < n; i++) {
+            wchar_t t[64]; swprintf(t, 64, L"%ls\t%d\u00D7%d", ps[i].label, ps[i].w, ps[i].h);
+            AppendMenuW(sz, MF_STRING | (C.sizeIdx == i ? MF_CHECKED : 0), IDM_SIZE0 + i, t);
+        }
+        if (n) AppendMenuW(sz, MF_SEPARATOR, 0, NULL);
+        AppendMenuW(sz, MF_STRING, IDM_SIZEDEF, L"Définir les tailles…");
+        AppendMenuW(m, MF_POPUP, (UINT_PTR)sz, L"Taille de l'image");
+    }
+    AppendMenuW(m, MF_SEPARATOR, 0, NULL);
     AppendMenuW(m, MF_STRING, IDC_SETTINGS, L"⚙  Paramètres…\tP");
+    if (C.thin && !g_full) {
+        AppendMenuW(m, MF_SEPARATOR, 0, NULL);
+        AppendMenuW(m, MF_STRING, IDM_MINIMIZE, L"Réduire");
+        AppendMenuW(m, MF_STRING, IDM_QUIT, L"Quitter\tAlt+F4");
+    }
     TrackPopupMenu(m, TPM_RIGHTBUTTON, x, y, 0, g_main, NULL);
     DestroyMenu(m);
+}
+
+static POINT g_dragPt; static int g_dragArm;
+
+/* En bordure fine, les 6 px du bord appartiennent à la fenêtre principale (poignées). */
+static int NearMainEdge(LPARAM l)
+{
+    if (!ThinFrame()) return 0;
+    POINT p = { GET_X_LPARAM(l), GET_Y_LPARAM(l) };
+    RECT r; GetWindowRect(g_main, &r);
+    int g = S(6);
+    return p.x < r.left + g || p.x >= r.right - g || p.y < r.top + g || p.y >= r.bottom - g;
+}
+
+static LRESULT CALLBACK ListSubProc(HWND h, UINT msg, WPARAM w, LPARAM l, UINT_PTR id, DWORD_PTR ref)
+{
+    (void)id; (void)ref;
+    if (msg == WM_NCHITTEST && NearMainEdge(l)) return HTTRANSPARENT;
+    return DefSubclassProc(h, msg, w, l);
 }
 
 static LRESULT CALLBACK HostProc(HWND h, UINT msg, WPARAM w, LPARAM l)
@@ -1108,7 +1458,25 @@ static LRESULT CALLBACK HostProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         }
         EndPaint(h, &ps);
         return 0; }
-    case WM_LBUTTONDOWN: SetFocus(g_main); return 0;
+    case WM_NCHITTEST:
+        if (NearMainEdge(l)) return HTTRANSPARENT;   /* redimensionnement par la fenêtre principale */
+        break;
+    case WM_LBUTTONDOWN:
+        SetFocus(g_main);
+        if (ThinFrame()) { g_dragPt.x = GET_X_LPARAM(l); g_dragPt.y = GET_Y_LPARAM(l); g_dragArm = 1; SetCapture(h); }
+        return 0;
+    case WM_MOUSEMOVE:
+        if (g_dragArm && (w & MK_LBUTTON)) {
+            int dx = GET_X_LPARAM(l) - g_dragPt.x, dy = GET_Y_LPARAM(l) - g_dragPt.y;
+            if (abs(dx) > GetSystemMetrics(SM_CXDRAG) || abs(dy) > GetSystemMetrics(SM_CYDRAG)) {
+                g_dragArm = 0; ReleaseCapture();
+                SendMessageW(g_main, WM_SYSCOMMAND, SC_MOVE | HTCAPTION, 0);   /* glisser = déplacer */
+            }
+        }
+        return 0;
+    case WM_LBUTTONUP:
+        if (g_dragArm) { g_dragArm = 0; ReleaseCapture(); }
+        return 0;
     case WM_LBUTTONDBLCLK: SetFullscreen(!g_full); return 0;
     case WM_RBUTTONUP: { POINT p = { GET_X_LPARAM(l), GET_Y_LPARAM(l) }; ClientToScreen(h, &p); ShowVideoMenu(p.x, p.y); return 0; }
     case WM_MOUSEWHEEL: SetVolume(C.volume + (GET_WHEEL_DELTA_WPARAM(w) > 0 ? 5 : -5)); return 0;
@@ -1151,6 +1519,10 @@ static int HandleKey(WPARAM vk)
     case 'S': StopPlayback(); return 1;
     case 'L': C.showlist = !C.showlist; LayoutMain(); SettingsSync(); return 1;
     case 'P': case VK_F2: OpenSettings(-1); return 1;
+    case 'B': SetThin(!C.thin); return 1;
+    case 'A': SetTopmost(!C.topmost); return 1;
+    case 'I': ShowHud(); return 1;
+    case 'T': { SizePreset ps[16]; int n = ParseSizes(ps, 16); if (n) ApplySizePreset((C.sizeIdx + 1) % n); return 1; }
     }
     return 0;
 }
@@ -1165,6 +1537,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
                                  0, 0, 10, 10, h, (HMENU)(INT_PTR)IDC_HOST, g_hi, NULL);
         g_list = Mk(h, WC_LISTBOXW, NULL, LBS_NOTIFY | LBS_NOINTEGRALHEIGHT | LBS_OWNERDRAWFIXED | LBS_HASSTRINGS | WS_VSCROLL | WS_TABSTOP, 0, IDC_LIST);
         SetWindowTheme(g_list, L"Explorer", NULL);
+        SetWindowSubclass(g_list, ListSubProc, 1, 0);
         g_tip = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, NULL, WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX,
                                 0, 0, 0, 0, h, NULL, g_hi, NULL);
         for (int i = 0; i < COUNT(BAR); i++) {
@@ -1176,7 +1549,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
             } else if (BAR[i].id == IDC_STATUS) {
                 c = g_status = Mk(h, WC_STATICW, L"", SS_LEFTNOWORDWRAP | SS_CENTERIMAGE | SS_ENDELLIPSIS | SS_NOPREFIX, 0, IDC_STATUS);
             } else {
-                c = Mk(h, WC_BUTTONW, BAR[i].txt, BS_PUSHBUTTON | WS_TABSTOP, 0, BAR[i].id);
+                c = Mk(h, WC_BUTTONW, BAR[i].txt, (BAR[i].id == IDC_SIZEBTN ? BS_SPLITBUTTON : BAR[i].id == IDC_TOPBTN ? (BS_AUTOCHECKBOX | BS_PUSHLIKE) : BS_PUSHBUTTON) | WS_TABSTOP, 0, BAR[i].id);
             }
             if (BAR[i].tip) {
                 TTTOOLINFOW ti; memset(&ti, 0, sizeof ti);
@@ -1192,12 +1565,77 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
 
     case WM_SIZE:
         if (w != SIZE_MINIMIZED) LayoutMain();
+        if (g_hud && IsWindowVisible(g_hud)) HudPlace();
+        if (w == SIZE_MINIMIZED) HideHud();
+        return 0;
+    case WM_MOVE:
+        if (g_hud && IsWindowVisible(g_hud)) HudPlace();
         return 0;
 
     case WM_GETMINMAXINFO: {
         MINMAXINFO *mm = (MINMAXINFO *)l;
-        mm->ptMinTrackSize.x = S(420); mm->ptMinTrackSize.y = S(280);
+        mm->ptMinTrackSize.x = S(200); mm->ptMinTrackSize.y = S(120);
         return 0; }
+
+    case WM_ERASEBKGND: {
+        HDC dc = (HDC)w; RECT rc; GetClientRect(h, &rc);
+        FillRect(dc, &rc, GetSysColorBrush(COLOR_BTNFACE));
+        int b = ThinB();
+        if (b) {
+            HBRUSH br = CreateSolidBrush(GetActiveWindow() == h ? RGB(0, 103, 192) : RGB(90, 90, 96));
+            RECT e;
+            SetRect(&e, 0, 0, rc.right, b);                 FillRect(dc, &e, br);
+            SetRect(&e, 0, rc.bottom - b, rc.right, rc.bottom); FillRect(dc, &e, br);
+            SetRect(&e, 0, 0, b, rc.bottom);                FillRect(dc, &e, br);
+            SetRect(&e, rc.right - b, 0, rc.right, rc.bottom);  FillRect(dc, &e, br);
+            DeleteObject(br);
+        }
+        return 1; }
+
+    case WM_ACTIVATE:
+        if (ThinFrame()) InvalidateRect(h, NULL, TRUE);   /* couleur du liseré */
+        break;
+
+    case WM_NCHITTEST:
+        if (ThinFrame()) {
+            POINT p = { GET_X_LPARAM(l), GET_Y_LPARAM(l) };
+            RECT r; GetWindowRect(h, &r);
+            int g = S(6), c = S(16);
+            int L = p.x < r.left + g, R = p.x >= r.right - g, T = p.y < r.top + g, B = p.y >= r.bottom - g;
+            int Lc = p.x < r.left + c, Rc = p.x >= r.right - c, Tc = p.y < r.top + c, Bc = p.y >= r.bottom - c;
+            if ((T && Lc) || (L && Tc)) return HTTOPLEFT;
+            if ((T && Rc) || (R && Tc)) return HTTOPRIGHT;
+            if ((B && Lc) || (L && Bc)) return HTBOTTOMLEFT;
+            if ((B && Rc) || (R && Bc)) return HTBOTTOMRIGHT;
+            if (L) return HTLEFT;
+            if (R) return HTRIGHT;
+            if (T) return HTTOP;
+            if (B) return HTBOTTOM;
+            return HTCAPTION;          /* fond de la barre : déplacer la fenêtre */
+        }
+        break;
+
+    case WM_NCLBUTTONDBLCLK:
+        if (ThinFrame() && w == HTCAPTION) { SetFullscreen(1); return 0; }
+        break;
+
+    case WM_ENTERSIZEMOVE: GetWindowRect(h, &g_sizeMoveRc); return 0;
+    case WM_EXITSIZEMOVE: {
+        RECT r; GetWindowRect(h, &r);
+        if (r.right - r.left != g_sizeMoveRc.right - g_sizeMoveRc.left
+            || r.bottom - r.top != g_sizeMoveRc.bottom - g_sizeMoveRc.top) {
+            C.sizeIdx = -1; UpdateSizeButton();       /* taille libre */
+        }
+        return 0; }
+
+    case WM_NOTIFY: {
+        NMHDR *nh = (NMHDR *)l;
+        if (nh->idFrom == IDC_SIZEBTN && nh->code == BCN_DROPDOWN) {
+            RECT r; GetWindowRect(nh->hwndFrom, &r);
+            ShowSizeMenu(r.right, r.top, TPM_RIGHTALIGN | TPM_BOTTOMALIGN);
+            return 0;
+        }
+        break; }
 
     case WM_DPICHANGED: {
         g_dpi = HIWORD(w);
@@ -1219,6 +1657,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         if (id >= IDM_ASPECT0 && id < IDM_ASPECT0 + COUNT(ASPECT_OPTS)) {
             C.aspect = id - IDM_ASPECT0; ApplyVideoOpts(); SettingsSync(); Flash(ASPECT_OPTS[C.aspect].label); return 0;
         }
+        if (id >= IDM_SIZE0 && id < IDM_SIZE0 + 16) { ApplySizePreset(id - IDM_SIZE0); return 0; }
         if (id >= IDM_DEINT0 && id < IDM_DEINT0 + COUNT(DEINT_OPTS)) {
             C.deint = id - IDM_DEINT0; ApplyVideoOpts(); SettingsSync(); return 0;
         }
@@ -1231,6 +1670,13 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         case IDC_FULL: SetFullscreen(!g_full); break;
         case IDC_CHANS: C.showlist = !C.showlist; LayoutMain(); SettingsSync(); break;
         case IDC_SETTINGS: OpenSettings(-1); break;
+        case IDC_SIZEBTN: { SizePreset ps[16]; int n = ParseSizes(ps, 16);
+                         if (n) ApplySizePreset((C.sizeIdx + 1) % n); else OpenSettings(-2); break; }
+        case IDM_SIZEDEF: OpenSettings(-2); break;
+        case IDM_THIN: SetThin(!C.thin); break;
+        case IDC_TOPBTN: SetTopmost(Button_GetCheck(GetDlgItem(h, IDC_TOPBTN)) == BST_CHECKED); break;
+        case IDM_MINIMIZE: ShowWindow(h, SW_MINIMIZE); break;
+        case IDM_QUIT: PostMessageW(h, WM_CLOSE, 0, 0); break;
         case IDM_PLAY: PlayChannel(g_menuCh); break;
         case IDM_RENAME: OpenSettings(g_menuCh); break;
         case IDM_HIDE:
@@ -1276,6 +1722,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         case TMR_DIGITS: CommitDigits(); break;
         case TMR_RETRY: KillTimer(h, TMR_RETRY); g_retries++; RequestPlayCur(); break;
         case TMR_FLASH: KillTimer(h, TMR_FLASH); UpdateStatus(); break;
+        case TMR_HUD: HideHud(); break;
         case TMR_SIZE: {
             static int tries;
             unsigned vw = 0, vh = 0;
@@ -1318,6 +1765,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         if (g_set) DestroyWindow(g_set);
         SaveConfig();
         g_quitting = 1;
+        HideHud();
         ShowWindow(h, SW_HIDE);
         if (g_workerAlive) {
             EnterCriticalSection(&g_cs); g_req.quit = 1; LeaveCriticalSection(&g_cs);
@@ -1370,7 +1818,13 @@ static int LayoutSettings(int W, int H, BOOL apply)
     P(U.topmost, x, y, lw, rh);  y += rh;
     P(U.resume, x, y, lw, rh);   y += rh;
     P(U.autoplay, x, y, lw, rh); y += rh;
-    P(U.showlist, x, y, lw, rh); y += rh + SS(14);
+    P(U.showlist, x, y, lw, rh); y += rh;
+    P(U.thin, x, y, lw, rh);     y += rh;
+    P(U.thinbar, x, y, lw, rh);  y += rh + SS(4);
+    P(U.lblSizes, x, y + (rh - lh) / 2, labw + SS(70), lh);
+    P(U.sizes, x + labw + SS(70) + g, y, lw - labw - SS(70) - g, rh); y += rh + SS(6);
+    P(U.lblHud, x, y + (rh - lh) / 2, labw + SS(70), lh);
+    P(U.hud, x + labw + SS(70) + g, y, SS(90), rh); y += rh + SS(14);
 
     HDR(3, x, y, lw); y += hh + SS(10);
     P(U.lblVlc, x, y, lw, lh); y += lh + SS(4);
@@ -1397,6 +1851,7 @@ static int LayoutSettings(int W, int H, BOOL apply)
         EndDeferWindowPos(d);
         SendMessageW(U.cacheSp, UDM_SETBUDDY, (WPARAM)U.cache, 0);
         SendMessageW(U.delaySp, UDM_SETBUDDY, (WPARAM)U.delay, 0);
+        SendMessageW(U.hudSp, UDM_SETBUDDY, (WPARAM)U.hud, 0);
         ListView_SetColumnWidth(U.lv, 2, LVSCW_AUTOSIZE_USEHEADER);
     }
 #undef P
@@ -1445,6 +1900,12 @@ static void SettingsSync(void)
     Button_SetCheck(U.resume, C.resume ? BST_CHECKED : BST_UNCHECKED);
     Button_SetCheck(U.autoplay, C.autoplay ? BST_CHECKED : BST_UNCHECKED);
     Button_SetCheck(U.showlist, C.showlist ? BST_CHECKED : BST_UNCHECKED);
+    Button_SetCheck(U.thin, C.thin ? BST_CHECKED : BST_UNCHECKED);
+    Button_SetCheck(U.thinbar, C.thinHideBar ? BST_CHECKED : BST_UNCHECKED);
+    EnableWindow(U.thinbar, C.thin);
+    SendMessageW(U.hudSp, UDM_SETPOS32, 0, C.hudSecs);
+    GetWindowTextW(U.sizes, cur, 256);
+    if (wcscmp(cur, C.sizes)) SetWindowTextW(U.sizes, C.sizes);
     GetWindowTextW(U.vlcdir, cur, MAX_PATH);
     if (wcscmp(cur, C.vlcdir)) SetWindowTextW(U.vlcdir, C.vlcdir);
     SetWindowTextW(U.vlcInfo, g_vlcInfo);
@@ -1502,6 +1963,15 @@ static void CreateSettingsControls(HWND h)
     U.resume   = Mk(h, WC_BUTTONW, L"Reprendre la dernière chaîne au démarrage", BS_AUTOCHECKBOX | WS_TABSTOP, 0, IDS_RESUME);
     U.autoplay = Mk(h, WC_BUTTONW, L"Lancer la lecture automatiquement", BS_AUTOCHECKBOX | WS_TABSTOP, 0, IDS_AUTOPLAY);
     U.showlist = Mk(h, WC_BUTTONW, L"Afficher la liste des chaînes à côté de l'image", BS_AUTOCHECKBOX | WS_TABSTOP, 0, IDS_SHOWLIST);
+    U.thin     = Mk(h, WC_BUTTONW, L"Bordure fine : fenêtre sans barre de titre  (B)", BS_AUTOCHECKBOX | WS_TABSTOP, 0, IDS_THIN);
+    U.thinbar  = Mk(h, WC_BUTTONW, L"En bordure fine, barre de commandes masquée (survol du bas)", BS_AUTOCHECKBOX | WS_TABSTOP, 0, IDS_THINBAR);
+    U.lblSizes = Mk(h, WC_STATICW, L"Tailles du bouton « Taille » (image) :", SS_LEFT | SS_NOPREFIX | SS_ENDELLIPSIS, 0, -1);
+    U.sizes    = Mk(h, WC_EDITW, L"", ES_AUTOHSCROLL | WS_TABSTOP, WS_EX_CLIENTEDGE, IDS_SIZES);
+    U.lblHud   = Mk(h, WC_STATICW, L"Incrustation HUD (secondes, 0 = aucune) :", SS_LEFT | SS_NOPREFIX | SS_ENDELLIPSIS, 0, -1);
+    U.hud      = Mk(h, WC_EDITW, L"", ES_NUMBER | ES_AUTOHSCROLL | WS_TABSTOP, WS_EX_CLIENTEDGE, IDS_HUD);
+    U.hudSp    = Mk(h, UPDOWN_CLASSW, NULL, UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_NOTHOUSANDS, 0, IDS_HUDSPIN);
+    SendMessageW(U.hudSp, UDM_SETBUDDY, (WPARAM)U.hud, 0);
+    SendMessageW(U.hudSp, UDM_SETRANGE32, 0, 60);
 
     U.lblVlc  = Mk(h, WC_STATICW, L"Dossier de VLC 64 bits (vide = détection automatique) :", SS_LEFT | SS_ENDELLIPSIS, 0, -1);
     U.vlcdir  = Mk(h, WC_EDITW, L"", ES_AUTOHSCROLL | WS_TABSTOP, WS_EX_CLIENTEDGE, IDS_VLCDIR);
@@ -1642,6 +2112,26 @@ static void SettingsCommand(HWND h, int id, int code)
     case IDS_RESUME:   C.resume   = Button_GetCheck(U.resume) == BST_CHECKED; break;
     case IDS_AUTOPLAY: C.autoplay = Button_GetCheck(U.autoplay) == BST_CHECKED; break;
     case IDS_SHOWLIST: C.showlist = Button_GetCheck(U.showlist) == BST_CHECKED; LayoutMain(); break;
+    case IDS_HUD:
+        if (code == EN_CHANGE && !g_setInit) {
+            wchar_t b[16]; GetWindowTextW(U.hud, b, 16);
+            C.hudSecs = Clamp(_wtoi(b), 0, 60);
+            ShowHud();
+        }
+        break;
+    case IDS_THIN:     SetThin(Button_GetCheck(U.thin) == BST_CHECKED); break;
+    case IDS_THINBAR:
+        C.thinHideBar = Button_GetCheck(U.thinbar) == BST_CHECKED;
+        UpdateAutoBar(); LayoutMain();
+        break;
+    case IDS_SIZES:
+        if (code == EN_CHANGE && !g_setInit) {
+            GetWindowTextW(U.sizes, C.sizes, 256);
+            SizePreset ps[16];
+            if (C.sizeIdx >= ParseSizes(ps, 16)) C.sizeIdx = -1;
+            UpdateSizeButton();
+        }
+        break;
 
     case IDS_VLCDIR:
         if (code == EN_KILLFOCUS) {
@@ -1746,7 +2236,7 @@ static void OpenSettings(int editCh)
         if (RectOnScreen(&C.setrc)) wp.rcNormalPosition = C.setrc;
         else {
             RECT mr; GetWindowRect(g_main, &mr);
-            int w = SS(1000), hh = SS(680);
+            int w = SS(1000), hh = SS(800);
             int x = (mr.left + mr.right - w) / 2, y = (mr.top + mr.bottom - hh) / 2;
             if (y < 0) y = 0;
             SetRect(&wp.rcNormalPosition, x, y, x + w, y + hh);
@@ -1757,6 +2247,7 @@ static void OpenSettings(int editCh)
         if (IsIconic(g_set)) ShowWindow(g_set, SW_RESTORE);
         SetForegroundWindow(g_set);
     }
+    if (editCh == -2) { SetFocus(U.sizes); SendMessageW(U.sizes, EM_SETSEL, 0, -1); }
     if (editCh >= 0 && editCh < g_nch) {
         LvSelect(editCh);
         SetFocus(U.lv);
@@ -1810,6 +2301,10 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE prev, PWSTR cmd, int show)
     wc.lpfnWndProc = HostProc; wc.lpszClassName = L"VlcMasterVideo"; wc.style = CS_DBLCLKS;
     wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
     RegisterClassExW(&wc);
+    wc.lpfnWndProc = HudProc; wc.lpszClassName = L"VlcMasterHud"; wc.style = 0;
+    wc.hbrBackground = NULL; wc.hIcon = NULL;
+    RegisterClassExW(&wc);
+    wc.hIcon = ico;
     wc.lpfnWndProc = SettingsProc; wc.lpszClassName = L"VlcMasterSettings"; wc.style = 0;
     wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
     RegisterClassExW(&wc);
@@ -1819,7 +2314,15 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE prev, PWSTR cmd, int show)
                              CW_USEDEFAULT, CW_USEDEFAULT, MulDiv(1120, (int)sdpi, 96), MulDiv(700, (int)sdpi, 96),
                              NULL, NULL, hi, NULL);
     if (!h) return 1;
+    g_hud = CreateWindowExW(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW,
+                            L"VlcMasterHud", NULL, WS_POPUP, 0, 0, 10, 10, h, NULL, hi, NULL);
+    if (g_hud) SetLayeredWindowAttributes(g_hud, 0, 225, LWA_ALPHA);
+    ApplyTopmost();
 
+    if (C.thin) { SetWindowLongW(h, GWL_STYLE, (LONG)MainStyle()); SetWindowPos(h, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED); }
+    ApplyCorners();
+    UpdateAutoBar();
+    UpdateSizeButton();
     if (RectOnScreen(&C.mainrc)) {
         WINDOWPLACEMENT wp = { sizeof wp };
         GetWindowPlacement(h, &wp);
@@ -1827,7 +2330,6 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE prev, PWSTR cmd, int show)
         wp.showCmd = C.mainmax ? SW_SHOWMAXIMIZED : SW_SHOWNORMAL;
         SetWindowPlacement(h, &wp);
     } else ShowWindow(h, show);
-    if (C.topmost) ApplyTopmost();
     UpdateWindow(h);
 
     StartVlc();
