@@ -36,6 +36,7 @@ enum { PS_PLAY = 0, PS_PAUSE = 1, PS_STOP = 2 };
 #define CMD_SETAUDIODELAY      0xA0002001u
 #define CMD_GETCURRENTPOSITION 0xA0003004u
 #define CMD_GETVERSION         0xA0003006u
+#define CMD_INCREASEVOLUME     0xA0004003u
 #define CMD_CLOSEAPP           0xA0004006u
 
 static int       g_engine;                 /* moteur effectif (C.engine au démarrage) */
@@ -313,6 +314,10 @@ static void MpcOnCopyData(const COPYDATASTRUCT *cd)
         g_mpcWnd = (HWND)(ULONG_PTR)_wcstoui64(s, NULL, 10);
         if (!IsWindow(g_mpcWnd)) { g_mpcWnd = NULL; break; }
         MpcEmbed();
+        /* Volume interne de MPC au maximum (il peut avoir été laissé à 0) :
+           c'est le mélangeur Windows qui règle ensuite le niveau.  Pas de
+           commande « volume = x » dans l'API de MPC-BE : 25 crans de +5 %. */
+        for (int i = 0; i < 25; i++) MpcSend(CMD_INCREASEVOLUME, NULL);
         swprintf(g_vlcInfo, 512, L"%ls\n%ls", ENG_NAMES[g_engine], g_mpcExe);
         MpcSend(CMD_GETVERSION, NULL);
         PostMessageW(g_main, WM_APP_VLCREADY, 1, 0);
