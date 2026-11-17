@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HomeRun Player – TV player for HDHomeRun</title>
+<meta name="description" content="HomeRun Player: a light native Windows TV player for HDHomeRun tuners, with a TV guide, recording, HUD, thin-border mode and a choice of VLC, MPC-HC or MPC-BE as the playback engine.">
+<link rel="icon" type="image/png" href="img/favicon.png">
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d232a; --muted: #5b6672; --line: #dfe3e8;
+    --accent: #0a6fd8; --accent-text: #ffffff; --link: #1f5fbf; --code: #eef1f4; --rec: #e03c3c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #11151a; --panel: #181e25; --text: #e7ebef; --muted: #9aa5b1; --line: #29323c;
+      --accent: #2f8cf0; --accent-text: #ffffff; --link: #8cc0ff; --code: #222a33; --rec: #ff5a5a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  a { color: var(--link); }
+  main { max-width: 920px; margin: 0 auto; padding: 0 16px 48px; }
+  header { padding: 40px 0 16px; }
+  .title { display: flex; align-items: center; gap: 16px; }
+  .title img { width: 64px; height: 64px; flex: none; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0; }
+  h2 { font-size: 22px; margin: 36px 0 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+  h3 { font-size: 17px; margin: 22px 0 6px; }
+  .lead { font-size: 18px; color: var(--muted); margin: 14px 0 20px; }
+  .buttons { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 8px; }
+  .btn { display: inline-block; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600;
+         border: 1px solid var(--line); background: var(--panel); color: var(--text); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .note { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 16px; margin: 16px 0; }
+  figure { margin: 0; }
+  .hero { margin: 18px 0 6px; }
+  .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin: 18px 0; }
+  .shots img, .hero img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); display: block; }
+  .shots a, .hero a { display: block; }
+  figcaption { color: var(--muted); font-size: 14px; margin-top: 6px; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 4px 0; }
+  code, pre, kbd { background: var(--code); border-radius: 6px; font: 14px/1.5 ui-monospace, Consolas, monospace; }
+  code { padding: 1px 5px; }
+  kbd { padding: 1px 6px; border: 1px solid var(--line); border-bottom-width: 2px; white-space: nowrap; }
+  pre { padding: 12px 14px; overflow-x: auto; }
+  .tablewrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 15px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  .rec { color: var(--rec); }
+  footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); margin-top: 40px; padding-top: 16px; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="title">
+    <img src="img/icon.png" alt="">
+    <h1>HomeRun Player</h1>
+  </div>
+  <p class="lead">A light, native Windows TV player for <strong>HDHomeRun</strong> tuners: live TV in its own window,
+    a TV guide, one-click recording, an on-screen display, a thin-border mode, and a choice of
+    <strong>VLC</strong>, <strong>MPC-HC</strong> or <strong>MPC-BE</strong> to play the picture.</p>
+  <div class="buttons">
+    <a class="btn primary" href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">Download for Windows</a>
+    <a class="btn" href="https://github.com/Popov2026/VlcMaster-V2">Source code</a>
+    <a class="btn" href="https://github.com/Popov2026/VlcMaster-V2/issues">Report a problem</a>
+  </div>
+  <p class="note">You need an HDHomeRun tuner (or any M3U playlist of TV streams) and
+    <strong>VLC 3.x 64-bit</strong>, or MPC-HC / MPC-BE 64-bit if you prefer them. Nothing else to install:
+    the program is a single file of about 400 KB.</p>
+</header>
+
+<figure class="hero">
+  <a href="img/main.jpg"><img src="img/main.jpg" width="1400" height="728"
+       alt="HomeRun Player main window: TV picture with the on-screen display, the channel list with the programme now on air, and the control bar"></a>
+  <figcaption>The main window: picture, on-screen display (channel, programme, time, volume, <span class="rec">● REC</span>),
+    channel list with the programme now on air, and the control bar.</figcaption>
+</figure>
+
+<div class="shots">
+  <figure>
+    <a href="img/guide.jpg"><img src="img/guide.jpg" width="1286" height="753" loading="lazy"
+         alt="TV guide window: a time grid of programmes for each channel, with a red line for now and the details of the selected programme"></a>
+    <figcaption>TV guide: a time grid with a “now” line; Enter or double-click to watch.</figcaption>
+  </figure>
+  <figure>
+    <a href="img/recordings.jpg"><img src="img/recordings.jpg" width="986" height="513" loading="lazy"
+         alt="Recordings window: list of recordings with programme, channel, date, duration, size and status, and a playback bar"></a>
+    <figcaption>Recordings: one in progress, one playing back with its position bar.</figcaption>
+  </figure>
+  <figure>
+    <a href="img/playback.jpg"><img src="img/playback.jpg" width="1400" height="728" loading="lazy"
+         alt="Playing back a recording: the on-screen display shows the elapsed time, the total length and a position bar"></a>
+    <figcaption>Watching a recording, even while it is still being recorded.</figcaption>
+  </figure>
+  <figure>
+    <a href="img/thin-border.jpg"><img src="img/thin-border.jpg" width="1098" height="474" loading="lazy"
+         alt="Thin-border mode at 480p: no title bar, and a compact control bar that appears when the mouse reaches the bottom"></a>
+    <figcaption>Thin-border mode at 480p: the control bar appears at the bottom and switches to icons when space is short.</figcaption>
+  </figure>
+  <figure>
+    <a href="img/settings-interface.jpg"><img src="img/settings-interface.jpg" width="766" height="593" loading="lazy"
+         alt="Settings window, Interface tab: language, window options, picture sizes and on-screen display duration"></a>
+    <figcaption>Settings, Interface tab: language, window options, preset sizes.</figcaption>
+  </figure>
+  <figure>
+    <a href="img/settings-engine.jpg"><img src="img/settings-engine.jpg" width="766" height="593" loading="lazy"
+         alt="Settings window, Engine tab: choice between VLC, MPC-HC and MPC-BE"></a>
+    <figcaption>Settings, Engine tab: VLC, MPC-HC or MPC-BE.</figcaption>
+  </figure>
+</div>
+<p><small>TV pictures are blurred on this page; in the program they are of course sharp.</small></p>
+
+<h2>Features</h2>
+<ul>
+  <li><strong>Live TV in the window</strong>: the picture is drawn inside the application, with hardware decoding. Channels are read
+    automatically from your tuner's <code>lineup.m3u</code> (names and numbers); zapping is instant with <kbd>←</kbd> <kbd>→</kbd>,
+    the mouse wheel or by typing the channel number.</li>
+  <li><strong>TV guide</strong> (automatic with an HDHomeRun, about a day ahead): a time grid window, the programme now on air under
+    each channel with a progress bar, and the current and next programme in the on-screen display.</li>
+  <li><strong>Recording</strong>: <span class="rec">●</span> Record saves the channel until the end of the programme (from the guide, plus
+    a margin), or for 30 min, 1, 2 or 3 hours, or without limit. The tuner's stream is saved as is (<code>.ts</code>, no quality loss).
+    Record one channel while watching another, or several channels at once (one tuner each).</li>
+  <li><strong>Recordings window</strong>: programme, channel, date, duration, size and status; play back in the main window with a position
+    bar, pause, back 10 s and forward 30 s, back to live; delete to the Recycle Bin.</li>
+  <li><strong>On-screen display (HUD)</strong>: channel, programme, time, state and resolution, volume, <span class="rec">● REC</span>;
+    shown when you zap or change the volume, or with <kbd>I</kbd>.</li>
+  <li><strong>Window modes</strong>: full screen, a thin-border window without title bar, preset picture sizes (1080p, 720p, 480p,
+    240p or your own), always on top or normal; the control bar adapts to small windows.</li>
+  <li><strong>Choice of playback engine</strong>: VLC (built in through libVLC, fastest zapping), or MPC-HC / MPC-BE, embedded in the
+    window with their own video settings.</li>
+  <li><strong>Six languages</strong>: English, French, Spanish, German, Italian and Portuguese.</li>
+  <li><strong>Settings</strong> in a compact tabbed window, applied immediately: playlist, cache, hardware decoding, deinterlacing, aspect
+    ratio, audio delay; rename, hide and reorder channels.</li>
+  <li>Automatic reconnection if the stream drops, per-monitor high DPI, a single portable program with its settings in an
+    <code>.ini</code> file next to it.</li>
+</ul>
+
+<h2>Download and install</h2>
+<ol>
+  <li>Install <a href="https://www.videolan.org/vlc/">VLC 3.x 64-bit</a> if you do not have it (or MPC-HC / MPC-BE 64-bit).</li>
+  <li>Download <code>HomeRunPlayer-vX.Y-win64.zip</code> from the <a href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">latest release</a>
+    and unzip it anywhere, for example in your Documents.</li>
+  <li>Double-click <code>HomeRunPlayer.exe</code>. VLC is found automatically; with a portable VLC, set its folder in
+    <strong>⚙ Settings › Engine</strong>.</li>
+</ol>
+<p>Each release lists the SHA-256 checksum of <code>HomeRunPlayer.exe</code>. Settings are saved in <code>HomeRunPlayer.ini</code> next to the
+  program (or in <code>%APPDATA%\HomeRunPlayer</code> if that folder is read-only).</p>
+
+<h2>How to use it</h2>
+<h3>First start</h3>
+<ol>
+  <li>Open <strong>⚙ Settings</strong> (<kbd>P</kbd>) › <strong>Source</strong> and enter your tuner's playlist address, for example
+    <code>http://192.168.1.90/lineup.m3u</code> (the IP address of your HDHomeRun), then <strong>Reload</strong>.</li>
+  <li>The channels appear in the list on the right: click one to watch it. The last channel is resumed at the next start.</li>
+  <li>The TV guide loads by itself after a few seconds.</li>
+</ol>
+
+<h3>Watching TV</h3>
+<p>Zap with <kbd>←</kbd> <kbd>→</kbd>, the <strong>CH−</strong> / <strong>CH+</strong> buttons, or type a channel number. The mouse wheel over the picture
+  and <kbd>↑</kbd> <kbd>↓</kbd> change the volume. Double-click the picture for full screen; right-click it for the aspect ratio, deinterlacing
+  and window options. Right-click a channel in the list to rename it, hide it or record it.</p>
+
+<h3>TV guide</h3>
+<p>Press <kbd>G</kbd> or the <strong>☷ Guide</strong> button. Move with the arrow keys or the mouse; <kbd>Shift</kbd> + wheel scrolls through
+  the hours, <strong>◀ 3 h</strong> and <strong>3 h ▶</strong> jump by three hours, <kbd>Home</kbd> comes back to now. The details panel shows the episode,
+  time and summary. <kbd>Enter</kbd> or a double-click watches the channel.</p>
+
+<h3>Recording</h3>
+<p>Press <kbd>R</kbd> or <strong><span class="rec">●</span> Record</strong>: the current channel is recorded until the end of the programme. The arrow next
+  to the button offers other durations and lets you stop each recording. Press <kbd>R</kbd> again to stop. Recordings go to
+  <code>Videos\HomeRun Player</code>, or to the folder set in <strong>⚙ Settings › Source</strong>.</p>
+<p><kbd>E</kbd> opens the recordings window: double-click to watch, use the position bar or <kbd>←</kbd> <kbd>→</kbd> to move through it,
+  and <strong>Back to live</strong> to return to TV.</p>
+<p class="note">If Windows' <em>Controlled folder access</em> (ransomware protection) blocks the Videos folder, HomeRun Player says so and
+  records in an allowed folder instead (<code>Enregistrements</code> next to the program). You can allow HomeRun Player in Windows Security or
+  choose another folder in Settings.</p>
+
+<h3>Window and playback engine</h3>
+<p><kbd>B</kbd> switches to the thin-border window: drag the picture to move it, drag the edges to resize it; the control bar appears when the
+  mouse reaches the bottom. <kbd>T</kbd> or the <strong>▣ Size</strong> button sets the picture to a preset size (define your own sizes in Settings ›
+  Interface). <kbd>A</kbd> keeps the window on top.</p>
+<p>In <strong>⚙ Settings › Engine</strong>, choose VLC, MPC-HC or MPC-BE; the program restarts with the new engine. With MPC, the volume is set
+  through the Windows mixer (up to 100 %), aspect ratio and deinterlacing are set in MPC itself, and changing channel is slower than with VLC.</p>
+
+<h3>Keyboard shortcuts</h3>
+<div class="tablewrap">
+<table>
+  <tr><th>Key</th><th>Action</th></tr>
+  <tr><td><kbd>←</kbd> <kbd>→</kbd>, <kbd>Page Up</kbd> <kbd>Page Down</kbd></td><td>Previous / next channel (while watching a recording: back 10 s / forward 30 s)</td></tr>
+  <tr><td><kbd>0</kbd>–<kbd>9</kbd></td><td>Go to channel number (confirmed automatically or with <kbd>Enter</kbd>)</td></tr>
+  <tr><td><kbd>↑</kbd> <kbd>↓</kbd>, mouse wheel</td><td>Volume</td></tr>
+  <tr><td><kbd>Space</kbd></td><td>Pause / play</td></tr>
+  <tr><td><kbd>S</kbd> · <kbd>M</kbd></td><td>Stop · Mute</td></tr>
+  <tr><td><kbd>R</kbd> · <kbd>E</kbd></td><td>Record / stop recording · Recordings window</td></tr>
+  <tr><td><kbd>G</kbd></td><td>TV guide</td></tr>
+  <tr><td><kbd>I</kbd></td><td>Show the on-screen display</td></tr>
+  <tr><td><kbd>F</kbd>, <kbd>F11</kbd>, double-click · <kbd>Esc</kbd></td><td>Full screen · leave full screen</td></tr>
+  <tr><td><kbd>B</kbd> · <kbd>T</kbd> · <kbd>A</kbd></td><td>Thin border · next preset size · always on top</td></tr>
+  <tr><td><kbd>L</kbd></td><td>Show / hide the channel list</td></tr>
+  <tr><td><kbd>P</kbd>, <kbd>F2</kbd></td><td>Settings (<kbd>Ctrl</kbd>+<kbd>Tab</kbd> for the next tab)</td></tr>
+</table>
+</div>
+
+<h2>Building from source</h2>
+<p>Windows with MinGW-w64 64-bit (gcc and windres). No VLC SDK is needed: libVLC is loaded when the program starts.</p>
+<pre>build.bat</pre>
+<p>The result is <code>build\HomeRunPlayer.exe</code>, a single statically linked program.</p>
+
+<h2>Privacy policy</h2>
+<p>HomeRun Player has no account and collects no personal data. It talks to:</p>
+<ul>
+  <li>your tuner on your local network, to read the channel list and the TV streams;</li>
+  <li>for the TV guide only, SiliconDust's guide service (<code>api.hdhomerun.com</code>), with your tuner's identifier, as the official HDHomeRun
+    app does. You can turn the guide off in <strong>⚙ Settings › Source</strong>.</li>
+</ul>
+<p>Recordings and settings stay on your computer.</p>
+
+<h2>En français</h2>
+<p><strong>HomeRun Player</strong> est un lecteur TV pour <strong>HDHomeRun</strong>, léger et natif sous Windows : la télé en direct dans sa fenêtre,
+  un guide TV, l'enregistrement en un clic (jusqu'à la fin de l'émission), l'affichage incrusté, une bordure fine, des tailles d'image
+  prédéfinies, et au choix VLC, MPC-HC ou MPC-BE pour l'image. L'interface est en français (ou en anglais, espagnol, allemand, italien,
+  portugais : ⚙ Paramètres › Interface).</p>
+<p>Il faut VLC 3.x 64 bits (ou MPC-HC / MPC-BE 64 bits). Téléchargez le zip de la
+  <a href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">dernière version</a>, dézippez-le et lancez
+  <code>HomeRunPlayer.exe</code>, puis indiquez l'adresse de votre <code>lineup.m3u</code> dans ⚙ Paramètres › Source.
+  Raccourcis : ← → zapper, R enregistrer, E enregistrements, G guide, F plein écran, B bordure fine, T taille, P paramètres.</p>
+
+<footer>HomeRun Player (formerly VLC Master) · © Popov 2026 ·
+  <a href="https://github.com/Popov2026/VlcMaster-V2">GitHub</a> ·
+  HDHomeRun is a trademark of SiliconDust; this project is not affiliated with SiliconDust, VideoLAN or the MPC projects.</footer>
+</main>
+</body>
+</html>
