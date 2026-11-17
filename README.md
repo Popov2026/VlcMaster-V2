@@ -2,6 +2,8 @@
 
 <img src="res/app.ico" width="64" align="right" alt="">
 
+Page du projet : https://popov2026.github.io/VlcMaster-V2/
+
 Lecteur TV natif pour **HDHomeRun** (ou toute playlist M3U), écrit en **C / Win32**, avec guide TV et enregistrement.
 Anciennement *VLC Master*.
 La vidéo est rendue **directement dans la fenêtre de l'application** grâce à libVLC :

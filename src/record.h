@@ -468,7 +468,7 @@ static void RecRow(int i)
         if (g_rec[ri].stop) wcscpy(stt, TR(L"● Arrêt…"));
         else if (g_rec[ri].endAt) { wchar_t hm[8]; FmtHM(g_rec[ri].endAt, hm); swprintf(stt, 96, TR(L"● Enregistrement (fin %ls)"), hm); }
         else wcscpy(stt, TR(L"● Enregistrement"));
-    } else if (g_fileMode && !_wcsicmp(g_file, f->path)) wcscpy(stt, g_paused ? L"‖ En pause" : L"▶ En lecture");
+    } else if (g_fileMode && !_wcsicmp(g_file, f->path)) wcscpy(stt, g_paused ? TR(L"‖ En pause") : TR(L"▶ En lecture"));
     if (secs >= 0) FmtDur(secs, du, 32);
     FmtSize(size, sz, 32);
     ListView_SetItemText(g_rlv, i, 3, du);

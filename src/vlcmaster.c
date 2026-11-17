@@ -601,7 +601,7 @@ static HMODULE LoadVlc(void)
     if (err == ERROR_BAD_EXE_FORMAT)
         swprintf(g_vlcInfo, 512, TR(L"Le VLC trouvé est en 32 bits.\nInstallez VLC 3.x 64 bits, puis indiquez son dossier dans ⚙ Paramètres."));
     else if (err)
-        swprintf(g_vlcInfo, 512, L"libvlc.dll trouvée mais impossible à charger (erreur %lu).", err);
+        swprintf(g_vlcInfo, 512, TR(L"libvlc.dll trouvée mais impossible à charger (erreur %lu)."), err);
     else
         swprintf(g_vlcInfo, 512, TR(L"VLC introuvable.\nInstallez VLC 3.x 64 bits ou indiquez son dossier dans ⚙ Paramètres."));
     return NULL;
@@ -1129,7 +1129,7 @@ static void BarTexts(void)
     SetBtnText(IDC_SIZEBTN, sz);
     SetBtnText(IDC_TOPBTN, C.topmost ? (k ? L"\u25B2" : TR(L"\u25B2  Premier plan")) : (k ? L"\u25BD" : TR(L"\u25BD  Arrière-plan")));
     SetBtnText(IDC_GUIDEBTN, k ? L"\u2637" : TR(L"\u2637  Guide"));
-    SetBtnText(IDC_RECLIST, k ? L"\u25A4" : L"\u25A4  Enregistrements");
+    SetBtnText(IDC_RECLIST, k ? L"\u25A4" : TR(L"\u25A4  Enregistrements"));
     SetBtnText(IDC_CHANS, k ? L"\u2630" : TR(L"\u2630  Chaînes"));
 }
 
@@ -2508,7 +2508,7 @@ static void SettingsCommand(HWND h, int id, int code)
         break;
     case IDS_VLCBROWSE: {
         wchar_t f[MAX_PATH] = L"libvlc.dll";
-        if (PickFile(h, L"libvlc.dll\0libvlc.dll\0", L"Sélectionner libvlc.dll (dossier de VLC 64 bits)", f, MAX_PATH)) {
+        if (PickFile(h, L"libvlc.dll\0libvlc.dll\0", TR(L"Sélectionner libvlc.dll (dossier de VLC 64 bits)"), f, MAX_PATH)) {
             wchar_t *s = wcsrchr(f, L'\\'); if (s) *s = 0;
             SetWindowTextW(U.vlcdir, f);
             SettingsCommand(h, IDS_VLCDIR, EN_KILLFOCUS);
@@ -2576,7 +2576,7 @@ static void SettingsCommand(HWND h, int id, int code)
         break;
     case IDS_MPCBROWSE: {
         wchar_t f[MAX_PATH] = L"";
-        if (PickFile(h, L"MPC-HC / MPC-BE (mpc-*.exe)\0mpc-*.exe\0Programmes (*.exe)\0*.exe\0", L"Sélectionner mpc-hc64.exe ou mpc-be64.exe", f, MAX_PATH)) {
+        if (PickFile(h, L"MPC-HC / MPC-BE (mpc-*.exe)\0mpc-*.exe\0Programmes (*.exe)\0*.exe\0", TR(L"Sélectionner mpc-hc64.exe ou mpc-be64.exe"), f, MAX_PATH)) {
             SetWindowTextW(U.mpcPath, f);
             SettingsCommand(h, IDS_MPCPATH, EN_KILLFOCUS);
         }
