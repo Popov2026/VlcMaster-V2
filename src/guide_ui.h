@@ -67,13 +67,13 @@ static void GridDetails(void)
             wchar_t a[8], b[8]; FmtHM(p->st, a); FmtHM(p->en, b);
             SYSTEMTIME d; EpochToLocal(p->st, &d);
             static const wchar_t *jours[7] = { L"dim.", L"lun.", L"mar.", L"mer.", L"jeu.", L"ven.", L"sam." };
-            swprintf(t, 2048, L"%ls%ls%ls\r\n%ls %02u/%02u   %ls – %ls   (%lld min)   ·   %ls\r\n\r\n%ls",
-                     p->title ? p->title : L"(sans titre)",
+            swprintf(t, 2048, TR(L"%ls%ls%ls\r\n%ls %02u/%02u   %ls – %ls   (%lld min)   ·   %ls\r\n\r\n%ls"),
+                     p->title ? p->title : TR(L"(sans titre)"),
                      p->ep ? L"  —  " : L"", p->ep ? p->ep : L"",
-                     jours[d.wDayOfWeek % 7], d.wDay, d.wMonth, a, b, (p->en - p->st) / 60,
+                     TR(jours[d.wDayOfWeek % 7]), d.wDay, d.wMonth, a, b, (p->en - p->st) / 60,
                      g_ch[g_selCh].name, p->syn ? p->syn : L"");
-        } else swprintf(t, 2048, L"%ls\r\nAucun programme sélectionné.", g_ch[g_selCh].name);
-    } else wcscpy(t, L"Cliquez sur un programme pour voir ses détails ; double-clic pour regarder la chaîne.");
+        } else swprintf(t, 2048, TR(L"%ls\r\nAucun programme sélectionné."), g_ch[g_selCh].name);
+    } else wcscpy(t, TR(L"Cliquez sur un programme pour voir ses détails ; double-clic pour regarder la chaîne."));
     SetWindowTextW(g_gdet, t);
 }
 
@@ -108,7 +108,7 @@ static void GridPaint(HDC dc, int W, int H)
     SelectObject(dc, g_gfBold);
     SYSTEMTIME d; EpochToLocal(g_gt0 > 0 ? g_gt0 : now, &d);
     static const wchar_t *jours[7] = { L"Dimanche", L"Lundi", L"Mardi", L"Mercredi", L"Jeudi", L"Vendredi", L"Samedi" };
-    wchar_t day[48]; swprintf(day, 48, L"%ls %02u/%02u", jours[d.wDayOfWeek % 7], d.wDay, d.wMonth);
+    wchar_t day[48]; swprintf(day, 48, L"%ls %02u/%02u", TR(jours[d.wDayOfWeek % 7]), d.wDay, d.wMonth);
     SetTextColor(dc, cTxt);
     RECT dr = { S(10), 0, nw, hh }; DrawTextW(dc, day, -1, &dr, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
     SelectObject(dc, g_font);
@@ -172,7 +172,7 @@ static void GridPaint(HDC dc, int W, int H)
         if (!any) {
             SelectObject(dc, g_fontSmall); SetTextColor(dc, cDim);
             RECT er = { nw + S(10), y, W, y + rh - 1 };
-            DrawTextW(dc, g_ngd ? L"Pas de programme pour cette chaîne" : g_gdInfo, -1, &er,
+            DrawTextW(dc, g_ngd ? TR(L"Pas de programme pour cette chaîne") : g_gdInfo, -1, &er,
                       DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
         }
         FillR(dc, 0, y + rh - 1, W, y + rh, cLine);
@@ -341,7 +341,7 @@ static LRESULT CALLBACK GuideWinProc(HWND h, UINT msg, WPARAM w, LPARAM l)
     case WM_CREATE: {
         g_gw = h;
         static const wchar_t *lbl[5] = { L"◀  3 h", L"Maintenant", L"3 h  ▶", L"▶  Regarder", L"Actualiser" };
-        for (int i = 0; i < 5; i++) g_gbtn[i] = Mk(h, WC_BUTTONW, lbl[i], BS_PUSHBUTTON, 0, IDG_BACK + i);
+        for (int i = 0; i < 5; i++) g_gbtn[i] = Mk(h, WC_BUTTONW, TR(lbl[i]), BS_PUSHBUTTON, 0, IDG_BACK + i);
         g_ginfo = Mk(h, WC_STATICW, g_gdInfo, SS_LEFT | SS_CENTERIMAGE | SS_ENDELLIPSIS | SS_NOPREFIX, 0, IDG_INFO);
         g_grid = CreateWindowExW(0, L"VlcMasterGrid", NULL, WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_HSCROLL | WS_TABSTOP,
                                  0, 0, 10, 10, h, NULL, g_hi, NULL);
@@ -400,7 +400,7 @@ static void OpenGuide(void)
         SetForegroundWindow(g_gw);
         return;
     }
-    CreateWindowExW(0, L"VlcMasterGuideWin", L"Guide TV — " APP_NAME, WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
+    CreateWindowExW(0, L"VlcMasterGuideWin", TR(L"Guide TV — " APP_NAME), WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
                     CW_USEDEFAULT, CW_USEDEFAULT, 100, 100, g_main, NULL, g_hi, NULL);
     if (!g_gw) return;
     WINDOWPLACEMENT wp = { sizeof wp };

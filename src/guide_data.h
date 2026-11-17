@@ -151,7 +151,7 @@ typedef struct { wchar_t base[256]; LONG gen; } GuideArg;
 static GuideCh  *g_gd;
 static int       g_ngd;
 static long long g_gdEnd;
-static wchar_t   g_gdInfo[200] = L"Guide TV : en attente";
+static wchar_t   g_gdInfo[200] = L"";   /* rempli au démarrage (traduit) */
 static LONG      g_gdGen;
 static HWND      g_gw, g_grid;           /* fenêtre Guide TV (guide_ui.h) */
 
@@ -260,7 +260,7 @@ static DWORD WINAPI GuideThread(LPVOID pv)
         JFree(&j); free(buf);
     }
     if (!auth[0]) {
-        if (!r->err[0]) swprintf(r->err, 256, L"aucun HDHomeRun détecté sur %ls", a->base);
+        if (!r->err[0]) swprintf(r->err, 256, TR(L"aucun HDHomeRun détecté sur %ls"), a->base);
     } else {
         wchar_t wa[128]; Utf8ToW(auth, wa, 128);
         long long now = NowEpoch(), start = 0;
@@ -278,7 +278,7 @@ static DWORD WINAPI GuideThread(LPVOID pv)
             start = r->maxEnd;
             if (r->maxEnd >= now + 24 * 3600) break;
         }
-        if (!r->n && !r->err[0]) swprintf(r->err, 256, L"le service guide n'a renvoyé aucun programme");
+        if (!r->n && !r->err[0]) swprintf(r->err, 256, TR(L"le service guide n'a renvoyé aucun programme"));
     }
     PostMessageW(g_main, WM_APP_GUIDE, (WPARAM)a->gen, (LPARAM)r);
     free(a);
@@ -307,12 +307,12 @@ static void GuideLoad(void)
     if (!a) return;
     if (!PlaylistHost(a->base, 256)) {
         free(a);
-        swprintf(g_gdInfo, 200, L"Guide TV : la playlist n'est pas celle d'un HDHomeRun");
+        swprintf(g_gdInfo, 200, TR(L"Guide TV : la playlist n'est pas celle d'un HDHomeRun"));
         GuideRefreshUI();
         return;
     }
     a->gen = InterlockedIncrement(&g_gdGen);
-    if (!g_ngd) { swprintf(g_gdInfo, 200, L"Guide TV : chargement…"); GuideRefreshUI(); }
+    if (!g_ngd) { swprintf(g_gdInfo, 200, TR(L"Guide TV : chargement…")); GuideRefreshUI(); }
     HANDLE t = CreateThread(NULL, 0, GuideThread, a, 0, NULL);
     if (t) CloseHandle(t); else free(a);
 }
@@ -332,9 +332,9 @@ static void OnGuide(WPARAM gen, GuideResult *r)
             wchar_t hm[8]; FmtHM(g_gdEnd, hm);
             SYSTEMTIME d; EpochToLocal(g_gdEnd, &d);
             static const wchar_t *jours[7] = { L"dimanche", L"lundi", L"mardi", L"mercredi", L"jeudi", L"vendredi", L"samedi" };
-            swprintf(g_gdInfo, 200, L"Guide TV : %d chaînes, jusqu'à %ls %u à %ls", g_ngd, jours[d.wDayOfWeek % 7], d.wDay, hm);
+            swprintf(g_gdInfo, 200, TR(L"Guide TV : %d chaînes, jusqu'à %ls %u à %ls"), g_ngd, TR(jours[d.wDayOfWeek % 7]), d.wDay, hm);
         } else {
-            swprintf(g_gdInfo, 200, L"Guide TV indisponible : %ls", r->err);
+            swprintf(g_gdInfo, 200, TR(L"Guide TV indisponible : %ls"), r->err);
         }
         GuideRefreshUI();
     }

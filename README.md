@@ -20,7 +20,7 @@ plus besoin de lancer un VLC externe ni d'activer son interface HTTP.
   - le volume passe par le mélangeur Windows (100 % maximum) ; format d'image et désentrelacement se règlent dans MPC ;
   - MPC est détecté automatiquement (registre, `Program Files`, K-Lite), sinon indiquez son exécutable ; le changement de moteur relance l'appli ;
   - MPC ouvre les flux réseau plus lentement que VLC : compter environ 10 s par changement de chaîne avec MPC-BE, contre 1 à 2 s avec VLC.
-- **Bouton ⚙ Paramètres** : fenêtre **redimensionnable** et adaptative (2 colonnes quand elle est large, empilée quand elle est étroite), réglages **appliqués immédiatement** :
+- **Bouton ⚙ Paramètres** : fenêtre compacte à **onglets** (Source, Lecture, Interface, Moteur, Chaînes ; Ctrl+Tab pour passer de l'un à l'autre), toujours ajustée à l'écran, réglages **appliqués immédiatement** :
   - source : URL ou fichier de la playlist, rechargement à chaud ;
   - lecture : cache réseau, décodage matériel (Auto / D3D11VA / DXVA2 / logiciel), désentrelacement (Yadif, Yadif 2x, Bob…), format d'image, synchro audio ;
   - interface : premier plan, reprise de la dernière chaîne, lecture automatique, liste latérale ;
@@ -47,7 +47,8 @@ plus besoin de lancer un VLC externe ni d'activer son interface HTTP.
 - **Bouton ▣ Taille** : règle l'image sur une taille prédéfinie (par défaut 1080p, 720p, 480p, 240p, ou `1280x720`…, à définir dans Paramètres). Un clic passe à la suivante, la flèche ouvre la liste.
 - **Bouton Premier plan / Arrière-plan** : garder la fenêtre au-dessus des autres, ou non.
 - **Reconnexion automatique** si le flux est coupé.
-- **Haute résolution (DPI)** gérée par écran, interface entièrement en français.
+- **6 langues** : français, anglais, espagnol, allemand, italien, portugais (Paramètres › Interface › Langue ; par défaut celle de Windows).
+- **Haute résolution (DPI)** gérée par écran.
 - Réglages sauvegardés dans `HomeRunPlayer.ini` (à côté de l'exe, sinon dans `%APPDATA%\HomeRunPlayer`) ; les réglages d'un ancien `VlcMaster.ini` sont repris automatiquement.
 
 ## ⌨️ Raccourcis
@@ -65,7 +66,7 @@ plus besoin de lancer un VLC externe ni d'activer son interface HTTP.
 | F, F11, double-clic | Plein écran |
 | Échap | Quitter le plein écran |
 | L | Afficher / masquer la liste des chaînes |
-| P, F2 | Paramètres |
+| P, F2 | Paramètres (Ctrl+Tab : onglet suivant) |
 | I | Afficher le HUD |
 | G | Guide TV (dans le guide : flèches, Entrée = regarder, Début = maintenant, Échap = fermer) |
 | B | Bordure fine / fenêtre normale |
@@ -99,6 +100,7 @@ Résultat : `build\HomeRunPlayer.exe` (exécutable autonome, lié statiquement).
 - `src/vlcmaster.c` : application (fenêtre, lecture, paramètres, playlist).
 - `src/libvlc_dyn.h` : liaison dynamique à l'API libVLC 3.x.
 - `src/guide_data.h` / `src/guide_ui.h` : guide TV (téléchargement, mini-lecteur JSON, fenêtre grille).
+- `src/lang.h` / `src/lang_table.h` : traduction de l'interface (6 langues).
 - `src/mpc.h` : moteurs MPC-HC / MPC-BE (API /slave, incrustation, volume par le mélangeur Windows).
 - `src/record.h` : enregistrement (threads de copie du flux) et fenêtre Enregistrements.
 - `res/` : icône, manifeste (thèmes, DPI) et informations de version.

@@ -78,10 +78,10 @@ static int RecEnsureDir(wchar_t *dir)
     for (int k = 0; k < 2; k++) {
         if (!alt[k][0] || !DirWritable(alt[k])) continue;
         wchar_t t[2 * MAX_PATH + 400];
-        swprintf(t, 2 * MAX_PATH + 400, L"Windows refuse l'écriture dans :\n%ls\n(protection « Accès contrôlé aux dossiers » de Sécurité Windows).\n\n"
+        swprintf(t, 2 * MAX_PATH + 400, TR(L"Windows refuse l'écriture dans :\n%ls\n(protection « Accès contrôlé aux dossiers » de Sécurité Windows).\n\n"
                  L"Les enregistrements iront dans :\n%ls\n\n"
                  L"Vous pouvez choisir un autre dossier dans ⚙ Paramètres, ou autoriser " APP_NAME
-                 L" dans Sécurité Windows › Protection contre les ransomware.", dir, alt[k]);
+                 L" dans Sécurité Windows › Protection contre les ransomware."), dir, alt[k]);
         wcscpy(C.recdir, alt[k]);
         wcscpy(dir, alt[k]);
         SaveConfig();
@@ -105,8 +105,8 @@ static void SanitizeFn(wchar_t *s)
 
 static void FmtSize(ULONGLONG b, wchar_t *o, int cap)
 {
-    if (b >= 1000000000ull) swprintf(o, cap, L"%.2f Go", b / 1e9);
-    else swprintf(o, cap, L"%.0f Mo", b / 1e6);
+    if (b >= 1000000000ull) swprintf(o, cap, TR(L"%.2f Go"), b / 1e9);
+    else swprintf(o, cap, TR(L"%.0f Mo"), b / 1e6);
 }
 
 static void FmtDur(long long s, wchar_t *o, int cap)
@@ -145,12 +145,12 @@ static DWORD WINAPI RecThread(LPVOID pv)
     BYTE *buf = NULL;
     HANDLE f = CreateFileW(r->path, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_DELETE, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
     if (f == INVALID_HANDLE_VALUE) {
-        swprintf(r->err, 160, L"impossible de créer le fichier (erreur %lu)", GetLastError());
+        swprintf(r->err, 160, TR(L"impossible de créer le fichier (erreur %lu)"), GetLastError());
         goto done;
     }
     net = InternetOpenW(L"HomeRunPlayer/" APP_VER, INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0);
     buf = (BYTE *)malloc(REC_BUF);
-    if (!net || !buf) { swprintf(r->err, 160, L"initialisation réseau impossible"); goto done; }
+    if (!net || !buf) { swprintf(r->err, 160, TR(L"initialisation réseau impossible")); goto done; }
     DWORD to = 6000;  InternetSetOptionW(net, INTERNET_OPTION_CONNECT_TIMEOUT, &to, sizeof to);
     to = 15000;       InternetSetOptionW(net, INTERNET_OPTION_RECEIVE_TIMEOUT, &to, sizeof to);
     wchar_t wurl[1024]; Utf8ToW(r->url, wurl, 1024);
@@ -163,18 +163,18 @@ static DWORD WINAPI RecThread(LPVOID pv)
             DWORD code = 0, cl = sizeof code;
             HttpQueryInfoW(q, HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER, &code, &cl, NULL);
             if (code && code != 200) {
-                if (code == 503) swprintf(r->err, 160, L"aucun tuner libre (HTTP 503)");
-                else swprintf(r->err, 160, L"erreur HTTP %lu", code);
+                if (code == 503) swprintf(r->err, 160, TR(L"aucun tuner libre (HTTP 503)"));
+                else swprintf(r->err, 160, TR(L"erreur HTTP %lu"), code);
                 InternetCloseHandle(q); q = NULL;
             }
-        } else if (!r->stop) swprintf(r->err, 160, L"tuner injoignable (erreur %lu)", GetLastError());
+        } else if (!r->stop) swprintf(r->err, 160, TR(L"tuner injoignable (erreur %lu)"), GetLastError());
         if (q) {
             InterlockedExchangePointer((PVOID volatile *)&r->hreq, q);
             DWORD n = 0;
             while (!r->stop && InternetReadFile(q, buf, REC_BUF, &n) && n) {
                 DWORD wr = 0;
                 if (!WriteFile(f, buf, n, &wr, NULL) || wr != n) {
-                    swprintf(r->err, 160, L"écriture impossible (disque plein ?)");
+                    swprintf(r->err, 160, TR(L"écriture impossible (disque plein ?)"));
                     r->stop = 1; break;
                 }
                 InterlockedExchangeAdd64(&r->bytes, (LONGLONG)n);
@@ -185,7 +185,7 @@ static DWORD WINAPI RecThread(LPVOID pv)
         }
         if (r->stop) break;
         /* Flux coupé : on se reconnecte (le fichier continue). */
-        if (++fails > 8) { if (!r->err[0]) swprintf(r->err, 160, L"flux interrompu"); break; }
+        if (++fails > 8) { if (!r->err[0]) swprintf(r->err, 160, TR(L"flux interrompu")); break; }
         for (int i = 0; i < 20 && !r->stop; i++) Sleep(100);
     }
 done:
@@ -209,22 +209,22 @@ static void RecChanged(void)
 /* endAt : epoch de fin, 0 = sans limite, -1 = fin de l'émission en cours (si connue). */
 static void RecStart(int ch, long long endAt)
 {
-    if (ch < 0 || ch >= g_nch) { Flash(L"Choisissez d'abord une chaîne à enregistrer"); return; }
-    if (RecForCh(ch) >= 0) { Flash(L"Cette chaîne est déjà en cours d'enregistrement"); return; }
+    if (ch < 0 || ch >= g_nch) { Flash(TR(L"Choisissez d'abord une chaîne à enregistrer")); return; }
+    if (RecForCh(ch) >= 0) { Flash(TR(L"Cette chaîne est déjà en cours d'enregistrement")); return; }
     const Channel *c = &g_ch[ch];
     if (_strnicmp(c->url, "http://", 7) && _strnicmp(c->url, "https://", 8)) {
-        Flash(L"Enregistrement impossible : flux non HTTP"); return;
+        Flash(TR(L"Enregistrement impossible : flux non HTTP")); return;
     }
     int i = 0;
     while (i < MAXREC && g_rec[i].used) i++;
-    if (i == MAXREC) { Flash(L"Trop d'enregistrements simultanés"); return; }
+    if (i == MAXREC) { Flash(TR(L"Trop d'enregistrements simultanés")); return; }
 
     wchar_t dir[MAX_PATH];
     if (!RecEnsureDir(dir)) {
         wchar_t t[MAX_PATH + 400];
-        swprintf(t, MAX_PATH + 400, L"Impossible d'écrire dans le dossier des enregistrements :\n%ls\n\n"
+        swprintf(t, MAX_PATH + 400, TR(L"Impossible d'écrire dans le dossier des enregistrements :\n%ls\n\n"
                  L"Si « Accès contrôlé aux dossiers » est activé dans Sécurité Windows, autorisez " APP_NAME
-                 L", ou choisissez un autre dossier dans ⚙ Paramètres.", dir);
+                 L", ou choisissez un autre dossier dans ⚙ Paramètres."), dir);
         MessageBoxW(g_main, t, APP_NAME, MB_ICONWARNING); return;
     }
     long long now = NowEpoch();
@@ -252,12 +252,12 @@ static void RecStart(int ch, long long endAt)
     }
     r->used = 1;
     r->th = CreateThread(NULL, 0, RecThread, r, 0, NULL);
-    if (!r->th) { r->used = 0; Flash(L"Impossible de lancer l'enregistrement"); return; }
+    if (!r->th) { r->used = 0; Flash(TR(L"Impossible de lancer l'enregistrement")); return; }
     SetTimer(g_main, TMR_REC, 1000, NULL);
 
     wchar_t t[200], hm[8] = L"";
     if (endAt) FmtHM(endAt, hm);
-    swprintf(t, 200, L"● Enregistrement de %ls%ls%ls", c->name, endAt ? L" jusqu'à " : L" (sans limite)", hm);
+    swprintf(t, 200, TR(L"● Enregistrement de %ls%ls%ls"), c->name, endAt ? TR(L" jusqu'à ") : TR(L" (sans limite)"), hm);
     Flash(t);
     RecChanged();
 }
@@ -279,12 +279,12 @@ static void RecFinished(int i)
     wchar_t t[400];
     if (r->bytes == 0) {
         DeleteFileW(r->path);
-        swprintf(t, 400, L"Enregistrement de %ls impossible : %ls", r->name, r->err[0] ? r->err : L"aucune donnée reçue");
+        swprintf(t, 400, TR(L"Enregistrement de %ls impossible : %ls"), r->name, r->err[0] ? r->err : TR(L"aucune donnée reçue"));
         if (!g_quitting) MessageBoxW(g_rw ? g_rw : g_main, t, APP_NAME, MB_ICONWARNING);
     } else {
         wchar_t sz[32], du[32]; FmtSize((ULONGLONG)r->bytes, sz, 32); FmtDur(NowEpoch() - r->start, du, 32);
-        if (r->err[0] && !r->stop) swprintf(t, 400, L"Enregistrement de %ls arrêté (%ls) · %ls · %ls", r->name, r->err, du, sz);
-        else swprintf(t, 400, L"Enregistrement de %ls terminé · %ls · %ls", r->name, du, sz);
+        if (r->err[0] && !r->stop) swprintf(t, 400, TR(L"Enregistrement de %ls arrêté (%ls) · %ls · %ls"), r->name, r->err, du, sz);
+        else swprintf(t, 400, TR(L"Enregistrement de %ls terminé · %ls · %ls"), r->name, du, sz);
         if (!g_quitting) Flash(t);
     }
     r->used = 0;
@@ -317,7 +317,7 @@ static void RecStopAll(void)
 static void RecToggleCur(void)
 {
     int i = RecForCh(g_cur);
-    if (i >= 0) { RecStop(i); Flash(L"Arrêt de l'enregistrement…"); }
+    if (i >= 0) { RecStop(i); Flash(TR(L"Arrêt de l'enregistrement…")); }
     else RecStart(g_cur, -1);
 }
 
@@ -330,23 +330,23 @@ static void ShowRecMenu(int x, int y, UINT align)
         const Prog *pr = ProgAt(GuideForCh(g_cur), NowEpoch(), NULL);
         if (pr) {
             wchar_t hm[8]; FmtHM(pr->en + (long long)C.recMargin * 60, hm);
-            swprintf(t, 200, L"Enregistrer jusqu'à la fin de l'émission  (%ls)", hm);
+            swprintf(t, 200, TR(L"Enregistrer jusqu'à la fin de l'émission  (%ls)"), hm);
             AppendMenuW(m, MF_STRING | MF_DEFAULT, IDM_RECEND, t);
         }
         static const wchar_t *lbl[4] = { L"Enregistrer 30 min", L"Enregistrer 1 h", L"Enregistrer 2 h", L"Enregistrer 3 h" };
-        for (int k = 0; k < 4; k++) AppendMenuW(m, MF_STRING, IDM_RECDUR0 + k, lbl[k]);
-        AppendMenuW(m, MF_STRING | (pr ? 0 : MF_DEFAULT), IDM_RECINF, L"Enregistrer sans limite");
+        for (int k = 0; k < 4; k++) AppendMenuW(m, MF_STRING, IDM_RECDUR0 + k, TR(lbl[k]));
+        AppendMenuW(m, MF_STRING | (pr ? 0 : MF_DEFAULT), IDM_RECINF, TR(L"Enregistrer sans limite"));
     }
     int any = 0;
     for (int i = 0; i < MAXREC; i++) {
         if (!g_rec[i].used) continue;
         if (!any) { if (GetMenuItemCount(m)) AppendMenuW(m, MF_SEPARATOR, 0, NULL); any = 1; }
         wchar_t t[300];
-        swprintf(t, 300, L"■  Arrêter : %ls%ls%ls", g_rec[i].name, g_rec[i].title[0] ? L" — " : L"", g_rec[i].title);
+        swprintf(t, 300, TR(L"■  Arrêter : %ls%ls%ls"), g_rec[i].name, g_rec[i].title[0] ? L" — " : L"", g_rec[i].title);
         AppendMenuW(m, MF_STRING | (g_rec[i].stop ? MF_GRAYED : 0), IDM_RECSTOP0 + i, t);
     }
     if (GetMenuItemCount(m)) AppendMenuW(m, MF_SEPARATOR, 0, NULL);
-    AppendMenuW(m, MF_STRING, IDC_RECLIST, L"Enregistrements…\tE");
+    AppendMenuW(m, MF_STRING, IDC_RECLIST, TR(L"Enregistrements…\tE"));
     TrackPopupMenu(m, TPM_RIGHTBUTTON | align, x, y, 0, g_main, NULL);
     DestroyMenu(m);
 }
@@ -368,17 +368,17 @@ static int RecCommand(int id)
 /* ------------------------------------------------------------------ */
 static void PlayFile(const wchar_t *path, const wchar_t *title)
 {
-    if (GetFileAttributesW(path) == INVALID_FILE_ATTRIBUTES) { Flash(L"Fichier introuvable"); return; }
+    if (GetFileAttributesW(path) == INVALID_FILE_ATTRIBUTES) { Flash(TR(L"Fichier introuvable")); return; }
     g_fileMode = 1;
     wcsncpy(g_file, path, MAX_PATH - 1); g_file[MAX_PATH - 1] = 0;
     wcsncpy(g_fileTitle, title, 255); g_fileTitle[255] = 0;
     g_retries = 0; g_userStopped = 0;
     KillTimer(g_main, TMR_RETRY);
     SendMessageW(g_list, LB_SETCURSEL, (WPARAM)-1, 0);
-    wchar_t m[400]; swprintf(m, 400, L"Lecture de « %ls »…", title);
+    wchar_t m[400]; swprintf(m, 400, TR(L"Lecture de « %ls »…"), title);
     SetHostMsg(g_vlcState == -1 ? g_vlcInfo : m);
     g_size[0] = 0;
-    SetState(L"Ouverture…");
+    SetState(TR(L"Ouverture…"));
     RequestPlayCur();
     ShowHud();
     if (g_rw) RecRowsUpdate();
@@ -393,7 +393,7 @@ static void SeekRel(int ms)
     EngSetTime(t);
     wchar_t a[24], b[24], f[80];
     FmtDur(t / 1000, a, 24); FmtDur(len / 1000, b, 24);
-    swprintf(f, 80, L"%ls %d s   ·   %ls / %ls", ms < 0 ? L"◀◀" : L"▶▶", (ms < 0 ? -ms : ms) / 1000, a, b);
+    swprintf(f, 80, TR(L"%ls %d s   ·   %ls / %ls"), ms < 0 ? L"◀◀" : L"▶▶", (ms < 0 ? -ms : ms) / 1000, a, b);
     Flash(f);
 }
 
@@ -465,9 +465,9 @@ static void RecRow(int i)
     ULONGLONG size = f->size; long long secs = f->secs;
     if (ri >= 0) {
         size = (ULONGLONG)g_rec[ri].bytes; secs = NowEpoch() - g_rec[ri].start;
-        if (g_rec[ri].stop) wcscpy(stt, L"● Arrêt…");
-        else if (g_rec[ri].endAt) { wchar_t hm[8]; FmtHM(g_rec[ri].endAt, hm); swprintf(stt, 96, L"● Enregistrement (fin %ls)", hm); }
-        else wcscpy(stt, L"● Enregistrement");
+        if (g_rec[ri].stop) wcscpy(stt, TR(L"● Arrêt…"));
+        else if (g_rec[ri].endAt) { wchar_t hm[8]; FmtHM(g_rec[ri].endAt, hm); swprintf(stt, 96, TR(L"● Enregistrement (fin %ls)"), hm); }
+        else wcscpy(stt, TR(L"● Enregistrement"));
     } else if (g_fileMode && !_wcsicmp(g_file, f->path)) wcscpy(stt, g_paused ? L"‖ En pause" : L"▶ En lecture");
     if (secs >= 0) FmtDur(secs, du, 32);
     FmtSize(size, sz, 32);
@@ -502,7 +502,7 @@ static void RecFill(void)
     for (int i = 0; i < g_nrf; i++) {
         LVITEMW it; memset(&it, 0, sizeof it);
         it.mask = LVIF_TEXT; it.iItem = i;
-        it.pszText = g_rf[i].title[0] ? g_rf[i].title : (LPWSTR)L"(sans titre)";
+        it.pszText = g_rf[i].title[0] ? g_rf[i].title : (LPWSTR)TR(L"(sans titre)");
         ListView_InsertItem(g_rlv, &it);
         ListView_SetItemText(g_rlv, i, 1, g_rf[i].ch);
         ListView_SetItemText(g_rlv, i, 2, g_rf[i].date);
@@ -519,9 +519,9 @@ static void RecFill(void)
     FmtSize(tot, a, 32);
     ULARGE_INTEGER fr;
     if (GetDiskFreeSpaceExW(dir, &fr, NULL, NULL)) FmtSize(fr.QuadPart, b, 32);
-    if (g_nrf) swprintf(t, MAX_PATH + 160, L"%d enregistrement%ls · %ls · %ls libres     %ls",
-                        g_nrf, g_nrf > 1 ? L"s" : L"", a, b, dir);
-    else swprintf(t, MAX_PATH + 160, L"Aucun enregistrement pour l'instant (bouton ● Enregistrer ou touche R)     %ls", dir);
+    if (g_nrf) swprintf(t, MAX_PATH + 160, TR(L"%d enregistrement%ls · %ls · %ls libres     %ls"),
+                        g_nrf, g_nrf > 1 ? TR(L"s") : L"", a, b, dir);
+    else swprintf(t, MAX_PATH + 160, TR(L"Aucun enregistrement pour l'instant (bouton ● Enregistrer ou touche R)     %ls"), dir);
     SetWindowTextW(g_rinfo, t);
 }
 
@@ -541,10 +541,10 @@ static void RecDeleteSel(void)
     if (s < 0) return;
     RFile *f = &g_rf[s];
     if (RecOfFile(f) >= 0) {
-        MessageBoxW(g_rw, L"Cet enregistrement est en cours.\nArrêtez-le d'abord.", APP_NAME, MB_ICONINFORMATION); return;
+        MessageBoxW(g_rw, TR(L"Cet enregistrement est en cours.\nArrêtez-le d'abord."), APP_NAME, MB_ICONINFORMATION); return;
     }
     wchar_t q[600];
-    swprintf(q, 600, L"Supprimer « %ls » ?\n\nLe fichier sera placé dans la Corbeille.", f->title[0] ? f->title : f->ch);
+    swprintf(q, 600, TR(L"Supprimer « %ls » ?\n\nLe fichier sera placé dans la Corbeille."), f->title[0] ? f->title : f->ch);
     if (MessageBoxW(g_rw, q, APP_NAME, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) != IDYES) return;
     if (g_fileMode && !_wcsicmp(g_file, f->path)) {   /* libère le fichier ouvert par libVLC */
         StopPlayback();
@@ -561,7 +561,7 @@ static void RecDeleteSel(void)
         ok = SHFileOperationW(&op) == 0 && !op.fAnyOperationsAborted;
         if (!ok) Sleep(500);
     }
-    if (!ok) MessageBoxW(g_rw, L"Suppression impossible (fichier utilisé ?).", APP_NAME, MB_ICONWARNING);
+    if (!ok) MessageBoxW(g_rw, TR(L"Suppression impossible (fichier utilisé ?)."), APP_NAME, MB_ICONWARNING);
     RecFill();
 }
 
@@ -585,7 +585,7 @@ static void RecPosUpdate(void)
     int on = g_fileMode && g_vlcState == 1;
     for (int i = 0; i < 4; i++) EnableWindow(g_rpb[i], i == 3 ? (g_fileMode && g_cur >= 0) : on);
     EnableWindow(g_rseek, on);
-    SetWindowTextW(g_rpb[0], g_paused ? L"▶  Lecture" : L"‖  Pause");
+    SetWindowTextW(g_rpb[0], g_paused ? TR(L"▶  Lecture") : TR(L"‖  Pause"));
     if (!on) { SetWindowTextW(g_rtime, L"–:–– / –:––"); SendMessageW(g_rseek, TBM_SETPOS, TRUE, 0); return; }
     long long len = EngLength(), t = EngTime();
     if (g_seekDrag && len > 0) t = len * SendMessageW(g_rseek, TBM_GETPOS, 0, 0) / 1000;
@@ -634,7 +634,7 @@ static LRESULT CALLBACK RecWinProc(HWND h, UINT msg, WPARAM w, LPARAM l)
     case WM_CREATE: {
         g_rw = h;
         static const wchar_t *lb[5] = { L"▶  Lire", L"■  Arrêter l'enregistrement", L"Supprimer", L"Ouvrir le dossier", L"Actualiser" };
-        for (int i = 0; i < 5; i++) g_rbtn[i] = Mk(h, WC_BUTTONW, lb[i], BS_PUSHBUTTON | WS_TABSTOP, 0, IDR_PLAY + i);
+        for (int i = 0; i < 5; i++) g_rbtn[i] = Mk(h, WC_BUTTONW, TR(lb[i]), BS_PUSHBUTTON | WS_TABSTOP, 0, IDR_PLAY + i);
         g_rinfo = Mk(h, WC_STATICW, L"", SS_LEFT | SS_CENTERIMAGE | SS_PATHELLIPSIS | SS_NOPREFIX, 0, IDR_INFO);
         g_rlv = Mk(h, WC_LISTVIEWW, NULL, LVS_REPORT | LVS_SHOWSELALWAYS | LVS_SINGLESEL | WS_TABSTOP, WS_EX_CLIENTEDGE, IDR_LV);
         SetWindowTheme(g_rlv, L"Explorer", NULL);
@@ -642,12 +642,12 @@ static LRESULT CALLBACK RecWinProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         static const wchar_t *cols[6] = { L"Émission", L"Chaîne", L"Date", L"Durée", L"Taille", L"État" };
         for (int i = 0; i < 6; i++) {
             LVCOLUMNW c; memset(&c, 0, sizeof c);
-            c.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_FMT; c.cx = 100; c.pszText = (LPWSTR)cols[i];
+            c.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_FMT; c.cx = 100; c.pszText = (LPWSTR)TR(cols[i]);
             c.fmt = (i == 3 || i == 4) ? LVCFMT_RIGHT : LVCFMT_LEFT;
             ListView_InsertColumn(g_rlv, i, &c);
         }
         static const wchar_t *pb[4] = { L"‖  Pause", L"◀◀ 10 s", L"30 s ▶▶", L"Retour au direct" };
-        for (int i = 0; i < 4; i++) g_rpb[i] = Mk(h, WC_BUTTONW, pb[i], BS_PUSHBUTTON | WS_TABSTOP, 0, i == 3 ? IDR_LIVE : IDR_PAUSE + i);
+        for (int i = 0; i < 4; i++) g_rpb[i] = Mk(h, WC_BUTTONW, TR(pb[i]), BS_PUSHBUTTON | WS_TABSTOP, 0, i == 3 ? IDR_LIVE : IDR_PAUSE + i);
         g_rseek = Mk(h, TRACKBAR_CLASSW, NULL, TBS_HORZ | TBS_NOTICKS | TBS_BOTH | WS_TABSTOP, 0, IDR_SEEK);
         SendMessageW(g_rseek, TBM_SETRANGE, TRUE, MAKELPARAM(0, 1000));
         SendMessageW(g_rseek, TBM_SETPAGESIZE, 0, 50);
@@ -743,7 +743,7 @@ static void OpenRecordings(void)
         RecFill();
         return;
     }
-    CreateWindowExW(0, L"HrpRecordings", L"Enregistrements — " APP_NAME, WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
+    CreateWindowExW(0, L"HrpRecordings", TR(L"Enregistrements — " APP_NAME), WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
                     CW_USEDEFAULT, CW_USEDEFAULT, 100, 100, g_main, NULL, g_hi, NULL);
     if (!g_rw) return;
     WINDOWPLACEMENT wp = { sizeof wp };

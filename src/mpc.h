@@ -223,9 +223,9 @@ static void MpcShow(int on)
 /* ------------------------------------------------------------------ */
 static void MpcStart(void)
 {
-    const wchar_t *nm = ENG_NAMES[g_engine];
+    const wchar_t *nm = TR(ENG_NAMES[g_engine]);
     if (!MpcFind(g_engine, g_mpcExe)) {
-        swprintf(g_vlcInfo, 512, L"%ls introuvable.\nInstallez-le ou indiquez son exécutable dans \u2699 Paramètres \u203A Moteur de lecture.", nm);
+        swprintf(g_vlcInfo, 512, TR(L"%ls introuvable.\nInstallez-le ou indiquez son exécutable dans \u2699 Paramètres \u203A Moteur de lecture."), nm);
         PostMessageW(g_main, WM_APP_VLCREADY, 0, 0);
         return;
     }
@@ -236,7 +236,7 @@ static void MpcStart(void)
     si.dwFlags = STARTF_USESHOWWINDOW; si.wShowWindow = SW_SHOWMINNOACTIVE;
     PROCESS_INFORMATION pi;
     if (!CreateProcessW(g_mpcExe, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-        swprintf(g_vlcInfo, 512, L"Impossible de lancer %ls (erreur %lu).\n%ls", nm, GetLastError(), g_mpcExe);
+        swprintf(g_vlcInfo, 512, TR(L"Impossible de lancer %ls (erreur %lu).\n%ls"), nm, GetLastError(), g_mpcExe);
         PostMessageW(g_main, WM_APP_VLCREADY, 0, 0);
         return;
     }
@@ -244,7 +244,7 @@ static void MpcStart(void)
     g_mpcProc = pi.hProcess; g_mpcPid = pi.dwProcessId;
     g_mpcStart = GetTickCount();
     g_workerAlive = 0;
-    swprintf(g_vlcInfo, 512, L"Démarrage de %ls…\n%ls", nm, g_mpcExe);
+    swprintf(g_vlcInfo, 512, TR(L"Démarrage de %ls…\n%ls"), nm, g_mpcExe);
     SetTimer(g_main, TMR_MPC, 500, NULL);
 }
 
@@ -271,20 +271,20 @@ static void MpcLost(const wchar_t *why)
     KillTimer(g_main, TMR_MPC);
     if (g_quitting) return;
     g_vlcState = -1; g_playing = 0; g_paused = 0;
-    swprintf(g_vlcInfo, 512, L"%ls %ls.\nRedémarrez l'application pour le relancer.", ENG_NAMES[g_engine], why);
+    swprintf(g_vlcInfo, 512, TR(L"%ls %ls.\nRedémarrez l'application pour le relancer."), TR(ENG_NAMES[g_engine]), why);
     SetHostMsg(g_vlcInfo);
-    SetState(L"Lecteur arrêté");
+    SetState(TR(L"Lecteur arrêté"));
     SettingsSync();
 }
 
 /* Toutes les 500 ms : attente de connexion, position, recadrage, volume. */
 static void MpcTick(void)
 {
-    if (g_mpcProc && WaitForSingleObject(g_mpcProc, 0) == WAIT_OBJECT_0) { MpcLost(L"s'est fermé"); return; }
+    if (g_mpcProc && WaitForSingleObject(g_mpcProc, 0) == WAIT_OBJECT_0) { MpcLost(TR(L"s'est fermé")); return; }
     if (!g_mpcWnd) {
         if (g_vlcState == 0 && GetTickCount() - g_mpcStart > 20000) {
             if (g_mpcProc) TerminateProcess(g_mpcProc, 0);
-            MpcLost(L"ne répond pas (pas de connexion /slave)");
+            MpcLost(TR(L"ne répond pas (pas de connexion /slave)"));
         }
         return;
     }
@@ -318,12 +318,12 @@ static void MpcOnCopyData(const COPYDATASTRUCT *cd)
            c'est le mélangeur Windows qui règle ensuite le niveau.  Pas de
            commande « volume = x » dans l'API de MPC-BE : 25 crans de +5 %. */
         for (int i = 0; i < 25; i++) MpcSend(CMD_INCREASEVOLUME, NULL);
-        swprintf(g_vlcInfo, 512, L"%ls\n%ls", ENG_NAMES[g_engine], g_mpcExe);
+        swprintf(g_vlcInfo, 512, L"%ls\n%ls", TR(ENG_NAMES[g_engine]), g_mpcExe);
         MpcSend(CMD_GETVERSION, NULL);
         PostMessageW(g_main, WM_APP_VLCREADY, 1, 0);
         break;
     case CMD_VERSION:
-        swprintf(g_vlcInfo, 512, L"%ls %ls\n%ls", ENG_NAMES[g_engine], s, g_mpcExe);
+        swprintf(g_vlcInfo, 512, L"%ls %ls\n%ls", TR(ENG_NAMES[g_engine]), s, g_mpcExe);
         SettingsSync();
         break;
     case CMD_STATE: {
@@ -346,7 +346,7 @@ static void MpcOnCopyData(const COPYDATASTRUCT *cd)
         break; }
     case CMD_CURRENTPOSITION: g_mpcPos = _wtof(s); break;
     case CMD_NOTIFYENDOFSTREAM: OnVlcEvent(EV_EndReached, 0); break;
-    case CMD_DISCONNECT: MpcLost(L"s'est fermé"); break;
+    case CMD_DISCONNECT: MpcLost(TR(L"s'est fermé")); break;
     }
 }
 
