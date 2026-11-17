@@ -38,7 +38,7 @@
 #include "libvlc_dyn.h"
 
 #define APP_NAME L"HomeRun Player"
-#define APP_VER  L"3.3"
+#define APP_VER  L"3.3.1"
 #define INI_NAME L"HomeRunPlayer"
 
 /* ------------------------------------------------------------------ */
