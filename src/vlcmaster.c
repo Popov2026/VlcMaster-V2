@@ -36,7 +36,7 @@
 #include "libvlc_dyn.h"
 
 #define APP_NAME L"HomeRun Player"
-#define APP_VER  L"3.0"
+#define APP_VER  L"3.1"
 #define INI_NAME L"HomeRunPlayer"
 
 /* ------------------------------------------------------------------ */
@@ -685,6 +685,8 @@ static void ShowHud(void);
 static void SettingsSync(void);
 static void FillLV(void);
 static int  RecCount(void);
+static void BarTexts(void);
+static int  g_compact;                          /* barre en libellés courts */
 static int  RecForCh(int ch);
 static void RecRowsUpdate(void);
 static void FmtDur(long long s, wchar_t *o, int cap);
@@ -735,7 +737,7 @@ static void ApplyAudio(void)
         p_libvlc_audio_set_delay(g_mp, (int64_t)C.delay * 1000);
     }
     SendMessageW(g_vol, TBM_SETPOS, TRUE, C.volume);
-    SetDlgItemTextW(g_main, IDC_MUTE, C.muted ? L"Rétablir" : L"Muet");
+    BarTexts();
 }
 
 static void SetVolume(int v)
@@ -1016,7 +1018,7 @@ static void SetFullscreen(int on)
     }
     ApplyCorners();
     UpdateAutoBar();
-    SetDlgItemTextW(g_main, IDC_FULL, g_full ? L"Fenêtre" : L"Plein écran");
+    BarTexts();
     LayoutMain();
     SetFocus(g_main);
 }
@@ -1068,11 +1070,38 @@ static int ParseSizes(SizePreset *out, int max)
 
 static void UpdateSizeButton(void)
 {
+    BarTexts();
+}
+
+static void SetBtnText(int id, const wchar_t *t)
+{
+    wchar_t cur[64]; GetDlgItemTextW(g_main, id, cur, 64);
+    if (wcscmp(cur, t)) SetDlgItemTextW(g_main, id, t);
+}
+
+/* Libellés des boutons de la barre, complets ou courts (fenêtre étroite). */
+static void BarTexts(void)
+{
+    if (!g_main) return;
+    int k = g_compact;
     SizePreset ps[16]; int n = ParseSizes(ps, 16);
-    wchar_t t[40];
-    if (C.sizeIdx >= 0 && C.sizeIdx < n) swprintf(t, 40, L"\u25A3  %ls", ps[C.sizeIdx].label);
-    else wcscpy(t, L"\u25A3  Taille");
-    SetDlgItemTextW(g_main, IDC_SIZEBTN, t);
+    wchar_t sz[40];
+    if (C.sizeIdx >= 0 && C.sizeIdx < n) swprintf(sz, 40, k ? L"%ls" : L"\u25A3  %ls", ps[C.sizeIdx].label);
+    else wcscpy(sz, k ? L"\u25A3" : L"\u25A3  Taille");
+    int rec = RecForCh(g_cur) >= 0;
+    SetBtnText(IDC_PREV, k ? L"\u25C0" : L"\u25C0  CH\u2212");
+    SetBtnText(IDC_NEXT, k ? L"\u25B6" : L"CH+  \u25B6");
+    SetBtnText(IDC_PAUSE, g_paused ? (k ? L"\u25BA" : L"Lecture") : (k ? L"\u2016" : L"Pause"));
+    SetBtnText(IDC_STOP, k ? L"\u25A0" : L"Stop");
+    SetBtnText(IDC_RECBTN, rec ? (k ? L"\u25A0 REC" : L"\u25A0  Arrêter l'enreg.") : (k ? L"\u25CF REC" : L"\u25CF  Enregistrer"));
+    SetBtnText(IDC_MUTE, C.muted ? (k ? L"Son" : L"Rétablir") : L"Muet");
+    SetBtnText(IDC_SETTINGS, k ? L"\u2699" : L"\u2699  Paramètres");
+    SetBtnText(IDC_FULL, k ? L"\u26F6" : (g_full ? L"Fenêtre" : L"Plein écran"));
+    SetBtnText(IDC_SIZEBTN, sz);
+    SetBtnText(IDC_TOPBTN, C.topmost ? (k ? L"\u25B2" : L"\u25B2  Premier plan") : (k ? L"\u25BD" : L"\u25BD  Arrière-plan"));
+    SetBtnText(IDC_GUIDEBTN, k ? L"\u2637" : L"\u2637  Guide");
+    SetBtnText(IDC_RECLIST, k ? L"\u25A4" : L"\u25A4  Enregistrements");
+    SetBtnText(IDC_CHANS, k ? L"\u2630" : L"\u2630  Chaînes");
 }
 
 static void ApplySizePreset(int idx)
@@ -1145,23 +1174,23 @@ static void FsTick(void)
 /* ------------------------------------------------------------------ */
 /* Fenêtre principale                                                  */
 /* ------------------------------------------------------------------ */
-typedef struct { int id; const wchar_t *txt; const wchar_t *tip; int w, prio, right; } BarItem;
+typedef struct { int id; const wchar_t *txt; const wchar_t *tip; int w, prio, right, sw; } BarItem;   /* sw : largeur compacte */
 static const BarItem BAR[] = {
-    { IDC_PREV,     L"◀  CH−",      L"Chaîne précédente  (←)",               78, 0, 0 },
-    { IDC_NEXT,     L"CH+  ▶",      L"Chaîne suivante  (→)",                 78, 0, 0 },
-    { IDC_PAUSE,    L"Pause",        L"Pause / lecture  (Espace)",            72, 1, 0 },
-    { IDC_STOP,     L"Stop",         L"Arrêter la lecture  (S)",              60, 4, 0 },
-    { IDC_RECBTN,   L"\u25CF  Enregistrer", L"Enregistrer la chaîne jusqu'à la fin de l'émission  (R) · flèche : durée, arrêt", 128, 1, 0 },
-    { IDC_VOL,      NULL,            L"Volume  (↑ ↓ ou molette sur l'image)", 130, 3, 0 },
-    { IDC_MUTE,     L"Muet",         L"Couper / rétablir le son  (M)",        76, 2, 0 },
-    { IDC_STATUS,   NULL,            NULL,                                     90, 6, 0 },
-    { IDC_SETTINGS, L"⚙  Paramètres", L"Paramètres  (P)",                     118, 0, 1 },
-    { IDC_FULL,     L"Plein écran",  L"Plein écran  (F, double-clic, Échap)",  100, 2, 1 },
-    { IDC_SIZEBTN,     L"\u25A3  Taille", L"Taille prédéfinie de l'image  (T = suivante, flèche = choisir)", 108, 3, 1 },
-    { IDC_TOPBTN,   L"\u25BD  Arrière-plan", L"Toujours au premier plan / fenêtre normale  (A)", 122, 4, 1 },
-    { IDC_GUIDEBTN, L"\u2637  Guide", L"Guide TV  (G)", 90, 3, 1 },
-    { IDC_RECLIST,  L"\u25A4  Enregistrements", L"Liste des enregistrements  (E)", 150, 3, 1 },
-    { IDC_CHANS,    L"☰  Chaînes",   L"Afficher / masquer la liste  (L)",      98, 5, 1 },
+    { IDC_PREV,     L"◀  CH−",      L"Chaîne précédente  (←)",               78, 0, 0, 40 },
+    { IDC_NEXT,     L"CH+  ▶",      L"Chaîne suivante  (→)",                 78, 0, 0, 40 },
+    { IDC_PAUSE,    L"Pause",        L"Pause / lecture  (Espace)",            72, 1, 0, 40 },
+    { IDC_STOP,     L"Stop",         L"Arrêter la lecture  (S)",              60, 4, 0, 40 },
+    { IDC_RECBTN,   L"\u25CF  Enregistrer", L"Enregistrer la chaîne jusqu'à la fin de l'émission  (R) · flèche : durée, arrêt", 128, 1, 0, 72 },
+    { IDC_VOL,      NULL,            L"Volume  (↑ ↓ ou molette sur l'image)", 130, 3, 0, 80 },
+    { IDC_MUTE,     L"Muet",         L"Couper / rétablir le son  (M)",        76, 2, 0, 56 },
+    { IDC_STATUS,   NULL,            NULL,                                     90, 6, 0, 0 },
+    { IDC_SETTINGS, L"⚙  Paramètres", L"Paramètres  (P)",                     118, 0, 1, 40 },
+    { IDC_FULL,     L"Plein écran",  L"Plein écran  (F, double-clic, Échap)",  100, 2, 1, 40 },
+    { IDC_SIZEBTN,     L"\u25A3  Taille", L"Taille prédéfinie de l'image  (T = suivante, flèche = choisir)", 108, 1, 1, 78 },
+    { IDC_TOPBTN,   L"\u25BD  Arrière-plan", L"Toujours au premier plan / fenêtre normale  (A)", 122, 4, 1, 40 },
+    { IDC_GUIDEBTN, L"\u2637  Guide", L"Guide TV  (G)", 90, 3, 1, 40 },
+    { IDC_RECLIST,  L"\u25A4  Enregistrements", L"Liste des enregistrements  (E)", 150, 3, 1, 40 },
+    { IDC_CHANS,    L"☰  Chaînes",   L"Afficher / masquer la liste  (L)",      98, 5, 1, 40 },
 };
 
 static void LayoutMain(void)
@@ -1180,32 +1209,45 @@ static void LayoutMain(void)
                        SWP_NOZORDER | SWP_NOACTIVATE | (listW ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
 
     /* Barre : on masque les éléments les moins prioritaires si la place manque. */
-    int pad = S(8), gap = S(6), avail = W - 2 * pad, level;
-    for (level = 6; level > 0; level--) {
-        int tot = 0;
-        for (int i = 0; i < COUNT(BAR); i++) if (BAR[i].prio <= level) tot += S(BAR[i].w) + gap;
-        if (tot - gap <= avail) break;
+    /* Place insuffisante : d'abord masquer l'accessoire (état, liste, stop…),
+       puis passer en libellés courts, enfin masquer les moins prioritaires. */
+    int pad = S(8), gap = S(6), avail = W - 2 * pad, level = 0, cmp = 1;
+    {
+        static const int tryLv[] = { 6, 5, 4, 5, 4, 3, 2, 1, 0 };
+        static const int tryCp[] = { 0, 0, 0, 1, 1, 1, 1, 1, 1 };
+        for (int t = 0; t < COUNT(tryLv); t++) {
+            int tot = 0;
+            for (int i = 0; i < COUNT(BAR); i++) {
+                if (BAR[i].prio > tryLv[t] || (tryCp[t] && BAR[i].id == IDC_STATUS)) continue;
+                tot += S(tryCp[t] ? BAR[i].sw : BAR[i].w) + gap;
+            }
+            level = tryLv[t]; cmp = tryCp[t];
+            if (tot - gap <= avail) break;
+        }
     }
+    if (cmp != g_compact) { g_compact = cmp; BarTexts(); }
+#define BW(i) S(g_compact ? BAR[i].sw : BAR[i].w)
     int bh = S(30), by = b + H - barH + (barH - bh) / 2;
     int xl = b + pad, xr = b + W - pad;
     for (int i = 0; i < COUNT(BAR); i++) {
         if (BAR[i].id == IDC_STATUS || BAR[i].right) continue;
         HWND h = GetDlgItem(g_main, BAR[i].id);
         int vis = showBar && BAR[i].prio <= level;
-        d = DeferWindowPos(d, h, NULL, xl, by, S(BAR[i].w), bh,
+        d = DeferWindowPos(d, h, NULL, xl, by, BW(i), bh,
                            SWP_NOZORDER | SWP_NOACTIVATE | (vis ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
-        if (vis) xl += S(BAR[i].w) + gap;
+        if (vis) xl += BW(i) + gap;
     }
     for (int i = 0; i < COUNT(BAR); i++) {
         if (!BAR[i].right) continue;
         HWND h = GetDlgItem(g_main, BAR[i].id);
         int vis = showBar && BAR[i].prio <= level;
-        if (vis) xr -= S(BAR[i].w);
-        d = DeferWindowPos(d, h, NULL, xr, by, S(BAR[i].w), bh,
+        if (vis) xr -= BW(i);
+        d = DeferWindowPos(d, h, NULL, xr, by, BW(i), bh,
                            SWP_NOZORDER | SWP_NOACTIVATE | (vis ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
         if (vis) xr -= gap;
     }
-    int sv = showBar && level >= 6;
+#undef BW
+    int sv = showBar && level >= 6 && !g_compact;
     d = DeferWindowPos(d, g_status, NULL, xl + S(6), by, xr - xl - S(6), bh,
                        SWP_NOZORDER | SWP_NOACTIVATE | (sv ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
     EndDeferWindowPos(d);
@@ -1240,18 +1282,13 @@ static void UpdateStatus(void)
     }
     else swprintf(t, 512, L"%ls%ls", rec, g_state);
     SetWindowTextW(g_status, t);
-    {
-        const wchar_t *rt = RecForCh(g_cur) >= 0 ? L"\u25A0  Arrêter l'enreg." : L"\u25CF  Enregistrer";
-        wchar_t cur[64]; GetDlgItemTextW(g_main, IDC_RECBTN, cur, 64);
-        if (wcscmp(cur, rt)) SetDlgItemTextW(g_main, IDC_RECBTN, rt);
-    }
+    BarTexts();
 
     wchar_t title[400];
     if (g_fileMode) swprintf(title, 400, L"%ls — %ls", g_fileTitle, APP_NAME);
     else if (g_cur >= 0) swprintf(title, 400, L"%ls — %ls", g_ch[g_cur].name, APP_NAME);
     else wcscpy(title, APP_NAME);
     SetWindowTextW(g_main, title);
-    SetDlgItemTextW(g_main, IDC_PAUSE, g_paused ? L"Lecture" : L"Pause");
     if (g_hud && IsWindowVisible(g_hud)) InvalidateRect(g_hud, NULL, FALSE);
 }
 
@@ -1260,7 +1297,7 @@ static void ApplyTopmost(void)
     SetWindowPos(g_main, C.topmost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     HWND b = GetDlgItem(g_main, IDC_TOPBTN);
     Button_SetCheck(b, C.topmost ? BST_CHECKED : BST_UNCHECKED);
-    SetWindowTextW(b, C.topmost ? L"\u25B2  Premier plan" : L"\u25BD  Arrière-plan");
+    BarTexts();
 }
 
 static void SetTopmost(int on)

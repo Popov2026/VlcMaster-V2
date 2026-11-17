@@ -37,6 +37,7 @@ plus besoin de lancer un VLC externe ni d'activer son interface HTTP.
   - dossier : `Vidéos\HomeRun Player` par défaut, modifiable dans Paramètres. Si Windows le protège (*Accès contrôlé aux dossiers*), l'appli bascule d'elle-même sur un dossier autorisé (`Enregistrements\` à côté de l'exe) et le signale.
 - **HUD incrusté** sur l'image : numéro et nom de la chaîne, état et résolution, heure, barre de volume (muet, >100 %). Il s'affiche au zapping, au volume, à chaque action, ou avec la touche I ; sa durée se règle dans Paramètres (0 = désactivé).
 - **Bordure fine** : fenêtre sans barre de titre, liseré de 2 px ; on la déplace en glissant l'image et on la redimensionne par les bords. La barre de commandes peut se masquer et réapparaître au survol.
+- **Barre de commandes adaptative** : quand la fenêtre est étroite (petite taille, bordure fine), les boutons passent en icônes plutôt que de disparaître ; Taille, Enregistrer, Paramètres et le zapping restent toujours accessibles.
 - **Bouton ▣ Taille** : règle l'image sur une taille prédéfinie (par défaut 1080p, 720p, 480p, 240p, ou `1280x720`…, à définir dans Paramètres). Un clic passe à la suivante, la flèche ouvre la liste.
 - **Bouton Premier plan / Arrière-plan** : garder la fenêtre au-dessus des autres, ou non.
 - **Reconnexion automatique** si le flux est coupé.
