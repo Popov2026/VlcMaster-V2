@@ -1,10 +1,13 @@
-# VlcMaster
+# HomeRun Player
 
-Lecteur IPTV natif pour **HD HomeRun** (ou toute playlist M3U), écrit en **C / Win32**.
+<img src="res/app.ico" width="64" align="right" alt="">
+
+Lecteur TV natif pour **HDHomeRun** (ou toute playlist M3U), écrit en **C / Win32**, avec guide TV et enregistrement.
+Anciennement *VLC Master*.
 La vidéo est rendue **directement dans la fenêtre de l'application** grâce à libVLC :
 plus besoin de lancer un VLC externe ni d'activer son interface HTTP.
 
-📺 VLC Master 2 — lecteur IPTV intégré
+📺 HomeRun Player 3 — regarder, consulter le guide, enregistrer
 
 ## ✨ Caractéristiques
 
@@ -23,19 +26,30 @@ plus besoin de lancer un VLC externe ni d'activer son interface HTTP.
   - programme en cours (avec barre d'avancement) sous chaque chaîne de la liste et dans la barre d'état ;
   - émission en cours et suivante dans le HUD ;
   - source : le service guide de SiliconDust (api.hdhomerun.com), interrogé avec l'identifiant de ton tuner ; on peut le désactiver dans Paramètres.
+- **Enregistrement** (bouton **● Enregistrer** ou touche R) :
+  - le flux du tuner est copié tel quel dans un fichier `.ts` (aucun réencodage, qualité d'origine) ;
+  - par défaut jusqu'à la fin de l'émission en cours (selon le guide, + marge réglable), ou 30 min / 1 h / 2 h / 3 h / sans limite via la flèche du bouton ;
+  - on peut enregistrer une chaîne et en regarder une autre, ou plusieurs chaînes à la fois (chaque flux occupe un tuner) ; clic droit sur une chaîne → *Enregistrer* ;
+  - témoins : point rouge dans la liste, « ● REC » dans la barre d'état et le HUD ; reconnexion automatique si le flux est coupé.
+- **Fenêtre Enregistrements** (bouton ▤ ou touche E) : émission, chaîne, date, durée, taille, état (en cours, en lecture) ;
+  - lecture dans le lecteur principal, même pendant l'enregistrement ; barre de position, pause, −10 s / +30 s (← → aussi dans la fenêtre principale), *Retour au direct* ;
+  - suppression vers la Corbeille, ouverture du dossier ;
+  - dossier : `Vidéos\HomeRun Player` par défaut, modifiable dans Paramètres. Si Windows le protège (*Accès contrôlé aux dossiers*), l'appli bascule d'elle-même sur un dossier autorisé (`Enregistrements\` à côté de l'exe) et le signale.
 - **HUD incrusté** sur l'image : numéro et nom de la chaîne, état et résolution, heure, barre de volume (muet, >100 %). Il s'affiche au zapping, au volume, à chaque action, ou avec la touche I ; sa durée se règle dans Paramètres (0 = désactivé).
 - **Bordure fine** : fenêtre sans barre de titre, liseré de 2 px ; on la déplace en glissant l'image et on la redimensionne par les bords. La barre de commandes peut se masquer et réapparaître au survol.
 - **Bouton ▣ Taille** : règle l'image sur une taille prédéfinie (par défaut 1080p, 720p, 480p, 240p, ou `1280x720`…, à définir dans Paramètres). Un clic passe à la suivante, la flèche ouvre la liste.
 - **Bouton Premier plan / Arrière-plan** : garder la fenêtre au-dessus des autres, ou non.
 - **Reconnexion automatique** si le flux est coupé.
 - **Haute résolution (DPI)** gérée par écran, interface entièrement en français.
-- Réglages sauvegardés dans `VlcMaster.ini` (à côté de l'exe, sinon dans `%APPDATA%\VlcMaster`).
+- Réglages sauvegardés dans `HomeRunPlayer.ini` (à côté de l'exe, sinon dans `%APPDATA%\HomeRunPlayer`) ; les réglages d'un ancien `VlcMaster.ini` sont repris automatiquement.
 
 ## ⌨️ Raccourcis
 
 | Touche | Action |
 |---|---|
-| ← / → (ou Page préc./suiv.) | Chaîne précédente / suivante |
+| ← / → (ou Page préc./suiv.) | Chaîne précédente / suivante (pendant la lecture d'un enregistrement : −10 s / +30 s) |
+| R | Enregistrer la chaîne / arrêter l'enregistrement |
+| E | Fenêtre Enregistrements |
 | 0-9 | Aller à la chaîne n° (validation auto ou Entrée) |
 | ↑ / ↓, molette sur l'image | Volume |
 | Espace | Pause / lecture |
@@ -61,7 +75,7 @@ Avec la version « zip » de VLC, il suffit d'indiquer son dossier dans ⚙ Para
 Au premier lancement d'un VLC portable, le cache des plugins (`plugins\plugins.dat`) est créé :
 les démarrages suivants sont quasi instantanés.
 
-Lancement : `VlcMaster.exe` (option : `VlcMaster.exe <playlist ou flux>`).
+Lancement : `HomeRunPlayer.exe` (option : `HomeRunPlayer.exe <playlist ou flux>`).
 
 ## 🛠️ Compilation
 
@@ -71,14 +85,15 @@ MinGW-w64 64 bits (gcc + windres), aucun SDK VLC nécessaire (libVLC est chargé
 build.bat
 ```
 
-Résultat : `build\VlcMaster.exe` (exécutable autonome, lié statiquement).
+Résultat : `build\HomeRunPlayer.exe` (exécutable autonome, lié statiquement).
 
 ## 📂 Structure
 
 - `src/vlcmaster.c` : application (fenêtre, lecture, paramètres, playlist).
 - `src/libvlc_dyn.h` : liaison dynamique à l'API libVLC 3.x.
 - `src/guide_data.h` / `src/guide_ui.h` : guide TV (téléchargement, mini-lecteur JSON, fenêtre grille).
-- `res/` : manifeste (thèmes, DPI) et informations de version.
+- `src/record.h` : enregistrement (threads de copie du flux) et fenêtre Enregistrements.
+- `res/` : icône, manifeste (thèmes, DPI) et informations de version.
 - `legacy/VlcMaster.pyw` : ancienne télécommande Python/tkinter (pilotage HTTP de VLC).
 
 By Popov ©2026

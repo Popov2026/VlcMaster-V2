@@ -63,7 +63,10 @@ enum {
  X(void,                    libvlc_video_set_key_input,     (libvlc_media_player_t*, unsigned)) \
  X(void,                    libvlc_video_set_aspect_ratio,  (libvlc_media_player_t*, const char*)) \
  X(void,                    libvlc_video_set_deinterlace,   (libvlc_media_player_t*, const char*)) \
- X(int,                     libvlc_video_get_size,          (libvlc_media_player_t*, unsigned, unsigned*, unsigned*))
+ X(int,                     libvlc_video_get_size,          (libvlc_media_player_t*, unsigned, unsigned*, unsigned*)) \
+ X(int64_t,                 libvlc_media_player_get_time,   (libvlc_media_player_t*)) \
+ X(void,                    libvlc_media_player_set_time,   (libvlc_media_player_t*, int64_t)) \
+ X(int64_t,                 libvlc_media_player_get_length, (libvlc_media_player_t*))
 
 #define X(r, n, a) static r (*p_##n) a;
 VLC_FUNCS(X)

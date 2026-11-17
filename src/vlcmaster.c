@@ -1,7 +1,7 @@
 /*
- * VLC Master 2 — lecteur IPTV natif (Win32 + libVLC)
+ * HomeRun Player — lecteur TV pour HDHomeRun (Win32 + libVLC)
  *
- * La vidéo est rendue directement dans la fenêtre de l'application via
+ * Anciennement « VLC Master ». La vidéo est rendue directement dans la fenêtre de l'application via
  * libVLC (plus de VLC externe piloté en HTTP). libvlc.dll est chargée
  * dynamiquement : il suffit qu'un VLC 3.x 64 bits soit installé (ou que
  * son dossier soit indiqué dans les paramètres).
@@ -27,34 +27,39 @@
 #include <commdlg.h>
 #include <wininet.h>
 #include <uxtheme.h>
+#include <shellapi.h>
+#include <shlobj.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
 #include "libvlc_dyn.h"
 
-#define APP_NAME L"VLC Master"
-#define APP_VER  L"2.0"
+#define APP_NAME L"HomeRun Player"
+#define APP_VER  L"3.0"
+#define INI_NAME L"HomeRunPlayer"
 
 /* ------------------------------------------------------------------ */
 /* Identifiants                                                        */
 /* ------------------------------------------------------------------ */
-enum { WM_APP_VLCREADY = WM_APP + 1, WM_APP_VLCEVENT, WM_APP_PLAYLIST, WM_APP_WORKERDONE, WM_APP_GUIDE };
-enum { TMR_FS = 1, TMR_DIGITS, TMR_RETRY, TMR_REPLAY, TMR_FORCEQUIT, TMR_FLASH, TMR_SIZE, TMR_HUD, TMR_GUIDE, TMR_MINUTE };
+enum { WM_APP_VLCREADY = WM_APP + 1, WM_APP_VLCEVENT, WM_APP_PLAYLIST, WM_APP_WORKERDONE, WM_APP_GUIDE, WM_APP_REC };
+enum { TMR_FS = 1, TMR_DIGITS, TMR_RETRY, TMR_REPLAY, TMR_FORCEQUIT, TMR_FLASH, TMR_SIZE, TMR_HUD, TMR_GUIDE, TMR_MINUTE, TMR_REC };
 
 enum {
     IDC_HOST = 100, IDC_LIST, IDC_PREV, IDC_NEXT, IDC_PAUSE, IDC_STOP, IDC_VOL,
-    IDC_MUTE, IDC_STATUS, IDC_CHANS, IDC_FULL, IDC_SETTINGS, IDC_SIZEBTN, IDC_TOPBTN, IDC_GUIDEBTN,
+    IDC_MUTE, IDC_STATUS, IDC_CHANS, IDC_FULL, IDC_SETTINGS, IDC_SIZEBTN, IDC_TOPBTN, IDC_GUIDEBTN, IDC_RECBTN, IDC_RECLIST,
 
     IDS_URL = 200, IDS_URLBROWSE, IDS_RELOAD, IDS_CACHE, IDS_CACHESPIN, IDS_HW,
     IDS_DEINT, IDS_ASPECT, IDS_DELAY, IDS_DELAYSPIN, IDS_TOPMOST, IDS_RESUME,
     IDS_AUTOPLAY, IDS_SHOWLIST, IDS_VLCDIR, IDS_VLCBROWSE, IDS_LV, IDS_UP,
     IDS_DOWN, IDS_RENAME, IDS_ORIGNAME, IDS_SHOWALL, IDS_CLOSE,
     IDS_THIN, IDS_THINBAR, IDS_SIZES, IDS_HUD, IDS_HUDSPIN, IDS_GUIDE,
+    IDS_RECDIR, IDS_RECBROWSE, IDS_RECMARGIN, IDS_RECMARGINSPIN,
 
     IDM_PLAY = 300, IDM_RENAME, IDM_HIDE,
     IDM_ASPECT0 = 400, IDM_DEINT0 = 450,
-    IDM_SIZEDEF = 499, IDM_SIZE0 = 500, IDM_THIN = 600, IDM_MINIMIZE, IDM_QUIT, IDM_GUIDE
+    IDM_SIZEDEF = 499, IDM_SIZE0 = 500, IDM_THIN = 600, IDM_MINIMIZE, IDM_QUIT, IDM_GUIDE,
+    IDM_RECEND = 650, IDM_RECINF, IDM_RECCH, IDM_RECDUR0 = 660, IDM_RECSTOP0 = 670
 };
 
 /* ------------------------------------------------------------------ */
@@ -112,6 +117,7 @@ static struct {
     int topmost, resume, autoplay, showlist;
     int thin, thinHideBar, sizeIdx, hudSecs;
     int guide; RECT guiderc;
+    wchar_t recdir[MAX_PATH]; int recMargin; RECT recrc;
     wchar_t sizes[256];
     unsigned long long lastkey;
     RECT mainrc; int mainmax; RECT setrc;
@@ -142,6 +148,8 @@ static int     g_full, g_fsBar; static DWORD g_fsLastNear; static WINDOWPLACEMEN
 static wchar_t g_digits[8];
 static int     g_menuCh = -1;
 static RECT    g_sizeMoveRc;
+static int     g_fileMode;                     /* lecture d'un enregistrement */
+static wchar_t g_file[MAX_PATH], g_fileTitle[256];
 
 /* thread VLC */
 static libvlc_instance_t     *g_inst;
@@ -158,6 +166,7 @@ static struct {
     HWND topmost, resume, autoplay, showlist;
     HWND thin, thinbar, lblSizes, sizes, lblHud, hud, hudSp;
     HWND guideChk, guideInfo;
+    HWND lblRec, recdir, recBr, lblMargin, margin, marginSp;
     HWND lblVlc, vlcdir, vlcBr, vlcInfo;
     HWND lv, up, down, rename, orig, showall, hint, close;
 } U;
@@ -247,13 +256,19 @@ static int TryCreateIni(const wchar_t *path)
 
 static void InitIniPath(void)
 {
-    swprintf(g_ini, MAX_PATH, L"%ls\\VlcMaster.ini", g_exedir);
+    /* Reprise automatique des réglages de l'ancienne version (VlcMaster.ini). */
+    wchar_t old[MAX_PATH];
+    swprintf(g_ini, MAX_PATH, L"%ls\\" INI_NAME L".ini", g_exedir);
+    swprintf(old, MAX_PATH, L"%ls\\VlcMaster.ini", g_exedir);
+    if (GetFileAttributesW(g_ini) == INVALID_FILE_ATTRIBUTES) CopyFileW(old, g_ini, TRUE);
     if (TryCreateIni(g_ini)) return;
     wchar_t app[MAX_PATH];
     if (GetEnvironmentVariableW(L"APPDATA", app, MAX_PATH)) {
-        wchar_t dir[MAX_PATH]; swprintf(dir, MAX_PATH, L"%ls\\VlcMaster", app);
+        wchar_t dir[MAX_PATH]; swprintf(dir, MAX_PATH, L"%ls\\" INI_NAME, app);
         CreateDirectoryW(dir, NULL);
-        swprintf(g_ini, MAX_PATH, L"%ls\\VlcMaster.ini", dir);
+        swprintf(g_ini, MAX_PATH, L"%ls\\" INI_NAME L".ini", dir);
+        swprintf(old, MAX_PATH, L"%ls\\VlcMaster\\VlcMaster.ini", app);
+        if (GetFileAttributesW(g_ini) == INVALID_FILE_ATTRIBUTES) CopyFileW(old, g_ini, TRUE);
         TryCreateIni(g_ini);
     }
 }
@@ -304,6 +319,9 @@ static void LoadConfig(void)
     C.hudSecs  = Clamp(IniInt(L"Interface", L"HudSecondes", 3), 0, 60);
     C.guide    = IniInt(L"Interface", L"GuideTV", 1) != 0;
     IniRect(L"Guide", &C.guiderc);
+    GetPrivateProfileStringW(L"Enregistrement", L"Dossier", L"", C.recdir, MAX_PATH, g_ini);
+    C.recMargin = Clamp(IniInt(L"Enregistrement", L"MargeFin", 2), 0, 60);
+    IniRect(L"Enregistrements", &C.recrc);
     GetPrivateProfileStringW(L"Fenetres", L"Tailles", L"1080p, 720p, 480p, 240p", C.sizes, 256, g_ini);
     C.mainmax  = IniInt(L"Fenetres", L"PrincipaleMax", 0) != 0;
     wchar_t b[32]; GetPrivateProfileStringW(L"General", L"Derniere", L"0", b, 32, g_ini);
@@ -335,6 +353,9 @@ static void SaveConfig(void)
     IniPutInt(L"Interface", L"HudSecondes", C.hudSecs);
     IniPutInt(L"Interface", L"GuideTV", C.guide);
     if (!IsRectEmpty(&C.guiderc)) IniPutRect(L"Guide", &C.guiderc);
+    WritePrivateProfileStringW(L"Enregistrement", L"Dossier", C.recdir, g_ini);
+    IniPutInt(L"Enregistrement", L"MargeFin", C.recMargin);
+    if (!IsRectEmpty(&C.recrc)) IniPutRect(L"Enregistrements", &C.recrc);
     WritePrivateProfileStringW(L"Fenetres", L"Tailles", C.sizes, g_ini);
     IniPutInt(L"Fenetres", L"PrincipaleMax", C.mainmax);
     if (!IsRectEmpty(&C.mainrc)) IniPutRect(L"Principale", &C.mainrc);
@@ -380,7 +401,7 @@ static int IsM3U(const wchar_t *s)
 static char *ReadHttp(const wchar_t *url, size_t *len, wchar_t *err)
 {
     char *buf = NULL; size_t n = 0, cap = 0;
-    HINTERNET hi = InternetOpenW(L"VlcMaster/2.0", INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0);
+    HINTERNET hi = InternetOpenW(L"HomeRunPlayer/" APP_VER, INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0);
     if (!hi) { swprintf(err, 256, L"WinINet indisponible (%lu)", GetLastError()); return NULL; }
     DWORD to = 5000;
     InternetSetOptionW(hi, INTERNET_OPTION_CONNECT_TIMEOUT, &to, sizeof to);
@@ -663,6 +684,11 @@ static void UpdateStatus(void);
 static void ShowHud(void);
 static void SettingsSync(void);
 static void FillLV(void);
+static int  RecCount(void);
+static int  RecForCh(int ch);
+static void RecRowsUpdate(void);
+static void FmtDur(long long s, wchar_t *o, int cap);
+static HWND g_rw;                               /* fenêtre Enregistrements (record.h) */
 
 static void SetHostMsg(const wchar_t *m)
 {
@@ -683,11 +709,12 @@ static void SetState(const wchar_t *s) { wcsncpy(g_state, s, 95); g_state[95] = 
 
 static void RequestPlayCur(void)
 {
-    if (g_cur < 0 || g_cur >= g_nch) return;
+    if (!g_fileMode && (g_cur < 0 || g_cur >= g_nch)) return;
     if (g_vlcState != 1) { SetState(g_vlcState == 0 ? L"En attente de libVLC…" : L"VLC indisponible"); return; }
     EnterCriticalSection(&g_cs);
     g_req.has = 1; g_req.stop = 0; g_req.caching = C.caching;
-    memcpy(g_req.url, g_ch[g_cur].url, sizeof g_req.url);
+    if (g_fileMode) WToUtf8(g_file, g_req.url, sizeof g_req.url);
+    else memcpy(g_req.url, g_ch[g_cur].url, sizeof g_req.url);
     strncpy(g_req.hw, HW_OPTS[C.hw].val, sizeof g_req.hw - 1);
     LeaveCriticalSection(&g_cs);
     SetEvent(g_wake);
@@ -743,7 +770,7 @@ static void StopPlayback(void)
 static void PlayChannel(int i)
 {
     if (i < 0 || i >= g_nch) return;
-    g_cur = i; g_retries = 0; g_userStopped = 0;
+    g_cur = i; g_retries = 0; g_userStopped = 0; g_fileMode = 0;
     KillTimer(g_main, TMR_RETRY);
     C.lastkey = g_ch[i].key;
     for (int v = 0; v < g_nvis; v++)
@@ -813,6 +840,14 @@ static void DrawChannelItem(const DRAWITEMSTRUCT *d)
     if (pr) { r1.bottom = r2.bottom = rc.top + (rc.bottom - rc.top) * 11 / 20; }
     SetTextColor(dc, sel ? RGB(200, 225, 255) : RGB(120, 120, 128));
     DrawTextW(dc, num, -1, &r1, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    if (RecForCh(g_vis[d->itemID]) >= 0) {   /* témoin d'enregistrement */
+        int dd = S(10), cx = r2.right - dd, cy = (r2.top + r2.bottom) / 2;
+        HBRUSH rb = CreateSolidBrush(RGB(235, 40, 40)); HGDIOBJ ob = SelectObject(dc, rb);
+        HGDIOBJ op = SelectObject(dc, GetStockObject(sel ? WHITE_PEN : NULL_PEN));
+        Ellipse(dc, cx - dd / 2, cy - dd / 2, cx + dd / 2 + 1, cy + dd / 2 + 1);
+        SelectObject(dc, op); SelectObject(dc, ob); DeleteObject(rb);
+        r2.right -= dd + S(8);
+    }
     SetTextColor(dc, sel ? RGB(255, 255, 255) : GetSysColor(COLOR_WINDOWTEXT));
     DrawTextW(dc, name, -1, &r2, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
     if (pr) {   /* programme en cours + avancement */
@@ -1116,6 +1151,7 @@ static const BarItem BAR[] = {
     { IDC_NEXT,     L"CH+  ▶",      L"Chaîne suivante  (→)",                 78, 0, 0 },
     { IDC_PAUSE,    L"Pause",        L"Pause / lecture  (Espace)",            72, 1, 0 },
     { IDC_STOP,     L"Stop",         L"Arrêter la lecture  (S)",              60, 4, 0 },
+    { IDC_RECBTN,   L"\u25CF  Enregistrer", L"Enregistrer la chaîne jusqu'à la fin de l'émission  (R) · flèche : durée, arrêt", 128, 1, 0 },
     { IDC_VOL,      NULL,            L"Volume  (↑ ↓ ou molette sur l'image)", 130, 3, 0 },
     { IDC_MUTE,     L"Muet",         L"Couper / rétablir le son  (M)",        76, 2, 0 },
     { IDC_STATUS,   NULL,            NULL,                                     90, 6, 0 },
@@ -1124,6 +1160,7 @@ static const BarItem BAR[] = {
     { IDC_SIZEBTN,     L"\u25A3  Taille", L"Taille prédéfinie de l'image  (T = suivante, flèche = choisir)", 108, 3, 1 },
     { IDC_TOPBTN,   L"\u25BD  Arrière-plan", L"Toujours au premier plan / fenêtre normale  (A)", 122, 4, 1 },
     { IDC_GUIDEBTN, L"\u2637  Guide", L"Guide TV  (G)", 90, 3, 1 },
+    { IDC_RECLIST,  L"\u25A4  Enregistrements", L"Liste des enregistrements  (E)", 150, 3, 1 },
     { IDC_CHANS,    L"☰  Chaînes",   L"Afficher / masquer la liste  (L)",      98, 5, 1 },
 };
 
@@ -1180,19 +1217,39 @@ static void UpdateStatus(void)
     if (!g_status) return;
     wchar_t t[512];
     if (GetTickCount() < g_flashUntil) { SetWindowTextW(g_status, g_flash); return; }
+    int nrec = RecCount();
+    wchar_t rec[48] = L"";
+    if (nrec == 1) wcscpy(rec, L"\u25CF REC   ·   ");
+    else if (nrec > 1) swprintf(rec, 48, L"\u25CF REC \u00D7%d   ·   ", nrec);
     if (g_digits[0]) swprintf(t, 512, L"Chaîne n° %ls_", g_digits);
+    else if (g_fileMode) {
+        wchar_t pos[48] = L"";
+        if (g_vlcState == 1 && g_playing) {
+            wchar_t a[24], b[24];
+            FmtDur(p_libvlc_media_player_get_time(g_mp) / 1000, a, 24);
+            FmtDur(p_libvlc_media_player_get_length(g_mp) / 1000, b, 24);
+            swprintf(pos, 48, L"   ·   %ls / %ls", a, b);
+        }
+        swprintf(t, 512, L"%ls\u25B6 %ls   ·   %ls%ls", rec, g_fileTitle, g_state, pos);
+    }
     else if (g_cur >= 0)
     {
         const Prog *pr = ProgAt(GuideForCh(g_cur), NowEpoch(), NULL);
-        swprintf(t, 512, L"%ls   ·   %ls%ls%ls%ls%ls", g_ch[g_cur].name, g_state, g_size[0] ? L"   ·   " : L"", g_size,
+        swprintf(t, 512, L"%ls%ls   ·   %ls%ls%ls%ls%ls", rec, g_ch[g_cur].name, g_state, g_size[0] ? L"   ·   " : L"", g_size,
                  pr && pr->title ? L"   ·   " : L"", pr && pr->title ? pr->title : L"");
     }
-    else wcscpy(t, g_state);
+    else swprintf(t, 512, L"%ls%ls", rec, g_state);
     SetWindowTextW(g_status, t);
+    {
+        const wchar_t *rt = RecForCh(g_cur) >= 0 ? L"\u25A0  Arrêter l'enreg." : L"\u25CF  Enregistrer";
+        wchar_t cur[64]; GetDlgItemTextW(g_main, IDC_RECBTN, cur, 64);
+        if (wcscmp(cur, rt)) SetDlgItemTextW(g_main, IDC_RECBTN, rt);
+    }
 
-    wchar_t title[256];
-    if (g_cur >= 0) swprintf(title, 256, L"%ls — %ls", g_ch[g_cur].name, APP_NAME);
-    else wcscpy(title, APP_NAME L" " APP_VER);
+    wchar_t title[400];
+    if (g_fileMode) swprintf(title, 400, L"%ls — %ls", g_fileTitle, APP_NAME);
+    else if (g_cur >= 0) swprintf(title, 400, L"%ls — %ls", g_ch[g_cur].name, APP_NAME);
+    else wcscpy(title, APP_NAME);
     SetWindowTextW(g_main, title);
     SetDlgItemTextW(g_main, IDC_PAUSE, g_paused ? L"Lecture" : L"Pause");
     if (g_hud && IsWindowVisible(g_hud)) InvalidateRect(g_hud, NULL, FALSE);
@@ -1242,6 +1299,7 @@ static void OnVlcEvent(int type, int val)
         EnumChildWindows(g_host, DisableProc, 0);
         SetState(L"Lecture");
         SetTimer(g_main, TMR_SIZE, 800, NULL);
+        if (g_rw) RecRowsUpdate();
         break;
     case EV_Vout: {
         EnumChildWindows(g_host, DisableProc, 0);
@@ -1250,7 +1308,7 @@ static void OnVlcEvent(int type, int val)
         ApplyVideoOpts();
         UpdateStatus();
         break; }
-    case EV_Paused:  g_paused = 1; SetState(L"En pause"); break;
+    case EV_Paused:  g_paused = 1; SetState(L"En pause"); if (g_rw) RecRowsUpdate(); break;
     case EV_Stopped:
         g_playing = 0; g_paused = 0; g_size[0] = 0;
         SetState(L"Arrêté");
@@ -1259,7 +1317,10 @@ static void OnVlcEvent(int type, int val)
     case EV_EndReached:
     case EV_Error:
         g_playing = 0; g_paused = 0;
-        if (!g_userStopped && g_cur >= 0 && g_retries < 5) {
+        if (g_fileMode && type == EV_EndReached) {
+            SetState(L"Fin de l'enregistrement");
+            SetHostMsg(L"Fin de l'enregistrement.\nEspace pour le revoir, ou choisissez une chaîne.");
+        } else if (!g_userStopped && !g_fileMode && g_cur >= 0 && g_retries < 5) {
             wchar_t t[96]; swprintf(t, 96, L"%ls — nouvelle tentative…", type == EV_Error ? L"Erreur de lecture" : L"Flux interrompu");
             SetState(t); SetHostMsg(t);
             SetTimer(g_main, TMR_RETRY, 1500u * (unsigned)(g_retries + 1), NULL);
@@ -1272,6 +1333,7 @@ static void OnVlcEvent(int type, int val)
 }
 
 #include "guide_ui.h"
+#include "record.h"
 
 static void OpenSettings(int editCh);
 
@@ -1304,7 +1366,7 @@ static void HudPlace(void)
     if (!g_hud) return;
     if (!IsWindowVisible(g_main) || IsIconic(g_main) || !IsWindowVisible(g_host)) { ShowWindow(g_hud, SW_HIDE); return; }
     RECT r; GetWindowRect(g_host, &r);
-    int m = S(16), w = S(480), hh = GuideForCh(g_cur) ? S(158) : S(108);
+    int m = S(16), w = S(480), hh = (g_fileMode || GuideForCh(g_cur)) ? S(158) : S(108);
     if (w > r.right - r.left - 2 * m) w = r.right - r.left - 2 * m;
     if (w < S(180) || hh > r.bottom - r.top - 2 * m) { ShowWindow(g_hud, SW_HIDE); return; }
     SetWindowRgn(g_hud, CreateRoundRectRgn(0, 0, w + 1, hh + 1, S(18), S(18)), FALSE);
@@ -1333,7 +1395,8 @@ static void HudPaint(HDC dc, int W, int H)
     /* Ligne 1 : numéro + nom de la chaîne, heure à droite */
     wchar_t num[16] = L"", clk[8];
     const wchar_t *name = L"Aucune chaîne";
-    if (g_cur >= 0 && g_cur < g_nch) {
+    if (g_fileMode) { wcscpy(num, L"\u25B6"); name = g_fileTitle; }
+    else if (g_cur >= 0 && g_cur < g_nch) {
         const Channel *c = &g_ch[g_cur];
         int v = VisPos(g_cur);
         if (c->num[0]) wcscpy(num, c->num); else swprintf(num, 16, L"%d", v + 1);
@@ -1347,6 +1410,14 @@ static void HudPaint(HDC dc, int W, int H)
     SetTextColor(dc, RGB(150, 150, 160));
     DrawTextW(dc, clk, -1, &ck, DT_RIGHT | DT_SINGLELINE | DT_NOPREFIX);
     SIZE cs; GetTextExtentPoint32W(dc, clk, (int)wcslen(clk), &cs);
+    if (RecCount()) {   /* témoin REC à gauche de l'heure */
+        const wchar_t *rt = L"\u25CF REC";
+        SIZE rs; GetTextExtentPoint32W(dc, rt, (int)wcslen(rt), &rs);
+        RECT rr = { right - cs.cx - S(14) - rs.cx, y + S(6), right - cs.cx - S(14), y + S(30) };
+        SetTextColor(dc, RGB(255, 70, 70));
+        DrawTextW(dc, rt, -1, &rr, DT_LEFT | DT_SINGLELINE | DT_NOPREFIX);
+        cs.cx += rs.cx + S(14);
+    }
     SelectObject(dc, g_hudBig);
     RECT t = { x, y, right - cs.cx - S(12), y + S(34) };
     if (num[0]) {
@@ -1362,7 +1433,24 @@ static void HudPaint(HDC dc, int W, int H)
     y += S(38);
     {
         const Prog *nx = NULL, *pr = ProgAt(GuideForCh(g_cur), NowEpoch(), &nx);
-        if (GuideForCh(g_cur)) {
+        if (g_fileMode) {   /* enregistrement : position */
+            long long len = g_vlcState == 1 ? p_libvlc_media_player_get_length(g_mp) : 0;
+            long long tt = g_vlcState == 1 ? p_libvlc_media_player_get_time(g_mp) : 0;
+            wchar_t a[24], b[24], l1[80];
+            FmtDur(tt < 0 ? 0 : tt / 1000, a, 24); FmtDur(len < 0 ? 0 : len / 1000, b, 24);
+            swprintf(l1, 80, L"Enregistrement   %ls / %ls", a, b);
+            SelectObject(dc, g_hudSmall);
+            SetTextColor(dc, RGB(240, 240, 246));
+            RECT g1 = { x, y, right, y + S(20) };
+            DrawTextW(dc, l1, -1, &g1, DT_LEFT | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
+            int px = len > 0 ? x + (int)((long long)(right - x) * tt / len) : x;
+            HBRUSH tb = CreateSolidBrush(RGB(58, 60, 70)); RECT r0 = { x, y + S(24), right, y + S(30) }; FillRect(dc, &r0, tb); DeleteObject(tb);
+            HBRUSH fb = CreateSolidBrush(RGB(255, 80, 80)); RECT r1 = { x, y + S(24), px, y + S(30) }; FillRect(dc, &r1, fb); DeleteObject(fb);
+            SetTextColor(dc, RGB(150, 152, 165));
+            RECT g2 = { x, y + S(32), right, y + S(48) };
+            DrawTextW(dc, L"\u2190 / \u2192 : reculer 10 s / avancer 30 s", -1, &g2, DT_LEFT | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
+            y += S(50);
+        } else if (GuideForCh(g_cur)) {
             wchar_t a[8], b[8], l1[200], l2b[200];
             if (pr) { FmtHM(pr->st, a); FmtHM(pr->en, b); swprintf(l1, 200, L"%ls – %ls   %ls", a, b, pr->title ? pr->title : L""); }
             else wcscpy(l1, L"Programme inconnu");
@@ -1456,6 +1544,8 @@ static void ShowVideoMenu(int x, int y)
     AppendMenuW(m, MF_POPUP, (UINT_PTR)dm, L"Désentrelacement");
     AppendMenuW(m, MF_SEPARATOR, 0, NULL);
     AppendMenuW(m, MF_STRING, IDM_GUIDE, L"Guide TV…\tG");
+    AppendMenuW(m, MF_STRING | (g_cur < 0 ? MF_GRAYED : 0), IDC_RECBTN, RecForCh(g_cur) >= 0 ? L"Arrêter l'enregistrement\tR" : L"Enregistrer cette chaîne\tR");
+    AppendMenuW(m, MF_STRING, IDC_RECLIST, L"Enregistrements…\tE");
     AppendMenuW(m, MF_STRING | (C.thin ? MF_CHECKED : 0), IDM_THIN, L"Bordure fine\tB");
     {
         HMENU sz = CreatePopupMenu();
@@ -1566,8 +1656,12 @@ static int HandleKey(WPARAM vk)
         return 1;
     }
     switch (vk) {
-    case VK_LEFT: case VK_PRIOR:  Zap(-1); return 1;
-    case VK_RIGHT: case VK_NEXT:  Zap(1);  return 1;
+    case VK_LEFT:  if (g_fileMode) SeekRel(-10000); else Zap(-1); return 1;
+    case VK_RIGHT: if (g_fileMode) SeekRel(30000); else Zap(1); return 1;
+    case VK_PRIOR: Zap(-1); return 1;
+    case VK_NEXT:  Zap(1);  return 1;
+    case 'R': RecToggleCur(); return 1;
+    case 'E': OpenRecordings(); return 1;
     case VK_UP:    SetVolume(C.volume + 5); return 1;
     case VK_DOWN:  SetVolume(C.volume - 5); return 1;
     case VK_SPACE: TogglePause(); return 1;
@@ -1609,7 +1703,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
             } else if (BAR[i].id == IDC_STATUS) {
                 c = g_status = Mk(h, WC_STATICW, L"", SS_LEFTNOWORDWRAP | SS_CENTERIMAGE | SS_ENDELLIPSIS | SS_NOPREFIX, 0, IDC_STATUS);
             } else {
-                c = Mk(h, WC_BUTTONW, BAR[i].txt, (BAR[i].id == IDC_SIZEBTN ? BS_SPLITBUTTON : BAR[i].id == IDC_TOPBTN ? (BS_AUTOCHECKBOX | BS_PUSHLIKE) : BS_PUSHBUTTON) | WS_TABSTOP, 0, BAR[i].id);
+                c = Mk(h, WC_BUTTONW, BAR[i].txt, ((BAR[i].id == IDC_SIZEBTN || BAR[i].id == IDC_RECBTN) ? BS_SPLITBUTTON : BAR[i].id == IDC_TOPBTN ? (BS_AUTOCHECKBOX | BS_PUSHLIKE) : BS_PUSHBUTTON) | WS_TABSTOP, 0, BAR[i].id);
             }
             if (BAR[i].tip) {
                 TTTOOLINFOW ti; memset(&ti, 0, sizeof ti);
@@ -1695,6 +1789,11 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
             ShowSizeMenu(r.right, r.top, TPM_RIGHTALIGN | TPM_BOTTOMALIGN);
             return 0;
         }
+        if (nh->idFrom == IDC_RECBTN && nh->code == BCN_DROPDOWN) {
+            RECT r; GetWindowRect(nh->hwndFrom, &r);
+            ShowRecMenu(r.left, r.top, TPM_LEFTALIGN | TPM_BOTTOMALIGN);
+            return 0;
+        }
         break; }
 
     case WM_DPICHANGED: {
@@ -1710,7 +1809,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         if (id == IDC_LIST) {
             if (HIWORD(w) == LBN_SELCHANGE) {
                 int s = (int)SendMessageW(g_list, LB_GETCURSEL, 0, 0);
-                if (s >= 0 && s < g_nvis && g_vis[s] != g_cur) PlayChannel(g_vis[s]);
+                if (s >= 0 && s < g_nvis && (g_vis[s] != g_cur || g_fileMode)) PlayChannel(g_vis[s]);
             }
             return 0;
         }
@@ -1718,6 +1817,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
             C.aspect = id - IDM_ASPECT0; ApplyVideoOpts(); SettingsSync(); Flash(ASPECT_OPTS[C.aspect].label); return 0;
         }
         if (id >= IDM_SIZE0 && id < IDM_SIZE0 + 16) { ApplySizePreset(id - IDM_SIZE0); return 0; }
+        if (RecCommand(id)) return 0;
         if (id >= IDM_DEINT0 && id < IDM_DEINT0 + COUNT(DEINT_OPTS)) {
             C.deint = id - IDM_DEINT0; ApplyVideoOpts(); SettingsSync(); return 0;
         }
@@ -1735,6 +1835,8 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         case IDM_SIZEDEF: OpenSettings(-2); break;
         case IDM_THIN: SetThin(!C.thin); break;
         case IDC_GUIDEBTN: case IDM_GUIDE: OpenGuide(); break;
+        case IDC_RECBTN: RecToggleCur(); break;
+        case IDC_RECLIST: OpenRecordings(); break;
         case IDC_TOPBTN: SetTopmost(Button_GetCheck(GetDlgItem(h, IDC_TOPBTN)) == BST_CHECKED); break;
         case IDM_MINIMIZE: ShowWindow(h, SW_MINIMIZE); break;
         case IDM_QUIT: PostMessageW(h, WM_CLOSE, 0, 0); break;
@@ -1762,6 +1864,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
             g_menuCh = g_vis[LOWORD(r)];
             HMENU m = CreatePopupMenu();
             AppendMenuW(m, MF_STRING | MF_DEFAULT, IDM_PLAY, L"Regarder");
+            AppendMenuW(m, MF_STRING | (RecForCh(g_menuCh) >= 0 ? MF_GRAYED : 0), IDM_RECCH, L"\u25CF  Enregistrer (jusqu'à la fin de l'émission)");
             AppendMenuW(m, MF_STRING, IDM_RENAME, L"Renommer…");
             AppendMenuW(m, MF_STRING, IDM_HIDE, L"Masquer de la liste");
             TrackPopupMenu(m, TPM_RIGHTBUTTON, p.x, p.y, 0, h, NULL);
@@ -1785,10 +1888,12 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         case TMR_FLASH: KillTimer(h, TMR_FLASH); UpdateStatus(); break;
         case TMR_HUD: HideHud(); break;
         case TMR_GUIDE: GuideLoad(); break;
+        case TMR_REC: RecTick(); break;
         case TMR_MINUTE:   /* avancement des programmes */
             InvalidateRect(g_list, NULL, FALSE);
             if (g_grid) InvalidateRect(g_grid, NULL, FALSE);
             UpdateStatus();
+            if (g_fileMode && g_hud && IsWindowVisible(g_hud)) InvalidateRect(g_hud, NULL, FALSE);
             break;
         case TMR_SIZE: {
             static int tries;
@@ -1820,6 +1925,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
 
     case WM_APP_VLCEVENT: OnVlcEvent((int)w, (int)l); return 0;
     case WM_APP_GUIDE: OnGuide(w, (GuideResult *)l); return 0;
+    case WM_APP_REC: RecFinished((int)w); return 0;
     case WM_APP_PLAYLIST: OnPlaylist(w, (PlResult *)l); return 0;
     case WM_APP_WORKERDONE:
         g_workerAlive = 0;
@@ -1827,13 +1933,22 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         return 0;
 
     case WM_CLOSE: {
+        int nrec = RecCount();
+        if (nrec) {
+            wchar_t q[200];
+            swprintf(q, 200, L"%d enregistrement%ls en cours.\n\nQuitter quand même ? (les fichiers déjà enregistrés sont conservés)",
+                     nrec, nrec > 1 ? L"s" : L"");
+            if (MessageBoxW(h, q, APP_NAME, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) != IDYES) return 0;
+        }
         WINDOWPLACEMENT wp = { sizeof wp };
         if (g_full) wp = g_wpPrev; else GetWindowPlacement(h, &wp);
         C.mainrc = wp.rcNormalPosition; C.mainmax = (wp.showCmd == SW_SHOWMAXIMIZED);
         if (g_set) DestroyWindow(g_set);
         if (g_gw) DestroyWindow(g_gw);
+        if (g_rw) DestroyWindow(g_rw);
         SaveConfig();
         g_quitting = 1;
+        RecStopAll();
         HideHud();
         ShowWindow(h, SW_HIDE);
         if (g_workerAlive) {
@@ -1873,6 +1988,12 @@ static int LayoutSettings(int W, int H, BOOL apply)
     y += rh + SS(6);
     P(U.guideChk, x, y, SS(170), rh);
     P(U.guideInfo, x + SS(176), y + (rh - lh) / 2, lw - SS(176), lh);
+    y += rh + SS(10);
+    P(U.lblRec, x, y, lw, lh); y += lh + SS(4);
+    P(U.recdir, x, y, lw - SS(34) - sp, rh);
+    P(U.recBr, x + lw - SS(34), y, SS(34), rh); y += rh + SS(6);
+    P(U.lblMargin, x, y + (rh - lh) / 2, labw + SS(70), lh);
+    P(U.margin, x + labw + SS(70) + g, y, SS(90), rh);
     y += rh + SS(18);
 
     HDR(1, x, y, lw); y += hh + SS(10);
@@ -1924,6 +2045,7 @@ static int LayoutSettings(int W, int H, BOOL apply)
         SendMessageW(U.cacheSp, UDM_SETBUDDY, (WPARAM)U.cache, 0);
         SendMessageW(U.delaySp, UDM_SETBUDDY, (WPARAM)U.delay, 0);
         SendMessageW(U.hudSp, UDM_SETBUDDY, (WPARAM)U.hud, 0);
+        SendMessageW(U.marginSp, UDM_SETBUDDY, (WPARAM)U.margin, 0);
         ListView_SetColumnWidth(U.lv, 2, LVSCW_AUTOSIZE_USEHEADER);
     }
 #undef P
@@ -1978,6 +2100,9 @@ static void SettingsSync(void)
     SendMessageW(U.hudSp, UDM_SETPOS32, 0, C.hudSecs);
     Button_SetCheck(U.guideChk, C.guide ? BST_CHECKED : BST_UNCHECKED);
     SetWindowTextW(U.guideInfo, g_gdInfo);
+    SendMessageW(U.marginSp, UDM_SETPOS32, 0, C.recMargin);
+    GetWindowTextW(U.recdir, cur, MAX_PATH);
+    if (wcscmp(cur, C.recdir)) SetWindowTextW(U.recdir, C.recdir);
     GetWindowTextW(U.sizes, cur, 256);
     if (wcscmp(cur, C.sizes)) SetWindowTextW(U.sizes, C.sizes);
     GetWindowTextW(U.vlcdir, cur, MAX_PATH);
@@ -2000,7 +2125,7 @@ static void ApplySettingsFonts(void)
 
 static void CreateSettingsControls(HWND h)
 {
-    static const wchar_t *hdrs[5] = { L"Source", L"Lecture", L"Interface", L"Moteur VLC", L"Chaînes" };
+    static const wchar_t *hdrs[5] = { L"Source et enregistrements", L"Lecture", L"Interface", L"Moteur VLC", L"Chaînes" };
     for (int i = 0; i < 5; i++) {
         U.hdr[i]  = Mk(h, WC_STATICW, hdrs[i], SS_LEFT | SS_NOPREFIX, 0, -1);
         U.line[i] = Mk(h, WC_STATICW, L"", SS_ETCHEDHORZ, 0, -1);
@@ -2045,6 +2170,16 @@ static void CreateSettingsControls(HWND h)
     U.hud      = Mk(h, WC_EDITW, L"", ES_NUMBER | ES_AUTOHSCROLL | WS_TABSTOP, WS_EX_CLIENTEDGE, IDS_HUD);
     U.guideChk = Mk(h, WC_BUTTONW, L"Guide TV (HDHomeRun)", BS_AUTOCHECKBOX | WS_TABSTOP, 0, IDS_GUIDE);
     U.guideInfo = Mk(h, WC_STATICW, L"", SS_LEFT | SS_NOPREFIX | SS_ENDELLIPSIS, 0, -1);
+    U.lblRec   = Mk(h, WC_STATICW, L"Dossier des enregistrements (vide = Vidéos\\" APP_NAME L") :", SS_LEFT | SS_NOPREFIX | SS_ENDELLIPSIS, 0, -1);
+    U.recdir   = Mk(h, WC_EDITW, L"", ES_AUTOHSCROLL | WS_TABSTOP, WS_EX_CLIENTEDGE, IDS_RECDIR);
+    { wchar_t def[MAX_PATH], keep = C.recdir[0]; C.recdir[0] = 0; RecDir(def); C.recdir[0] = keep;
+      SendMessageW(U.recdir, EM_SETCUEBANNER, TRUE, (LPARAM)def); }
+    U.recBr    = Mk(h, WC_BUTTONW, L"…", BS_PUSHBUTTON | WS_TABSTOP, 0, IDS_RECBROWSE);
+    U.lblMargin = Mk(h, WC_STATICW, L"Marge après la fin de l'émission (min) :", SS_LEFT | SS_NOPREFIX | SS_ENDELLIPSIS, 0, -1);
+    U.margin   = Mk(h, WC_EDITW, L"", ES_NUMBER | ES_AUTOHSCROLL | WS_TABSTOP, WS_EX_CLIENTEDGE, IDS_RECMARGIN);
+    U.marginSp = Mk(h, UPDOWN_CLASSW, NULL, UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_NOTHOUSANDS, 0, IDS_RECMARGINSPIN);
+    SendMessageW(U.marginSp, UDM_SETBUDDY, (WPARAM)U.margin, 0);
+    SendMessageW(U.marginSp, UDM_SETRANGE32, 0, 60);
     U.hudSp    = Mk(h, UPDOWN_CLASSW, NULL, UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_NOTHOUSANDS, 0, IDS_HUDSPIN);
     SendMessageW(U.hudSp, UDM_SETBUDDY, (WPARAM)U.hud, 0);
     SendMessageW(U.hudSp, UDM_SETRANGE32, 0, 60);
@@ -2142,6 +2277,7 @@ static void SettingsCommand(HWND h, int id, int code)
     case IDOK:
         if (GetFocus() == U.url) SettingsCommand(h, IDS_RELOAD, BN_CLICKED);
         else if (GetFocus() == U.vlcdir) SettingsCommand(h, IDS_VLCDIR, EN_KILLFOCUS);
+        else if (GetFocus() == U.recdir) SettingsCommand(h, IDS_RECDIR, EN_KILLFOCUS);
         break;
     case IDCANCEL: case IDS_CLOSE: DestroyWindow(h); break;
 
@@ -2234,6 +2370,30 @@ static void SettingsCommand(HWND h, int id, int code)
         }
         break; }
 
+    case IDS_RECDIR:
+        if (code == EN_KILLFOCUS) {
+            wchar_t b[MAX_PATH]; GetWindowTextW(U.recdir, b, MAX_PATH); TrimW(b);
+            size_t L = wcslen(b); while (L > 3 && b[L - 1] == L'\\') b[--L] = 0;
+            if (wcscmp(b, C.recdir)) { wcscpy(C.recdir, b); SaveConfig(); if (g_rw) RecFill(); }
+        }
+        break;
+    case IDS_RECBROWSE: {
+        BROWSEINFOW bi; memset(&bi, 0, sizeof bi);
+        bi.hwndOwner = h; bi.lpszTitle = L"Dossier des enregistrements";
+        bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+        PIDLIST_ABSOLUTE pl = SHBrowseForFolderW(&bi);
+        if (pl) {
+            wchar_t f[MAX_PATH];
+            if (SHGetPathFromIDListW(pl, f)) { SetWindowTextW(U.recdir, f); SettingsCommand(h, IDS_RECDIR, EN_KILLFOCUS); }
+            CoTaskMemFree(pl);
+        }
+        break; }
+    case IDS_RECMARGIN:
+        if (code == EN_CHANGE && !g_setInit) {
+            wchar_t b[16]; GetWindowTextW(U.margin, b, 16);
+            C.recMargin = Clamp(_wtoi(b), 0, 60);
+        }
+        break;
     case IDS_UP:   MoveChannel(-1); break;
     case IDS_DOWN: MoveChannel(1); break;
     case IDS_RENAME: { int s = LvSel(); if (s >= 0) { SetFocus(U.lv); ListView_EditLabel(U.lv, s); } break; }
@@ -2292,6 +2452,7 @@ static LRESULT CALLBACK SettingsProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         GetWindowPlacement(h, &wp);
         C.setrc = wp.rcNormalPosition;
         GetWindowTextW(U.vlcdir, C.vlcdir, MAX_PATH); TrimW(C.vlcdir);
+        SettingsCommand(h, IDS_RECDIR, EN_KILLFOCUS);
         SaveConfig();
         g_set = NULL;
         if (g_main && !g_quitting) SetFocus(g_main);
@@ -2369,14 +2530,17 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE prev, PWSTR cmd, int show)
     }
     INITCOMMONCONTROLSEX icc = { sizeof icc, ICC_STANDARD_CLASSES | ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES | ICC_UPDOWN_CLASS };
     InitCommonControlsEx(&icc);
+    CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);   /* sélecteur de dossier */
     InitializeCriticalSection(&g_cs);
     g_wake = CreateEventW(NULL, FALSE, FALSE, NULL);
 
-    HICON ico = LoadIconW(hi, MAKEINTRESOURCEW(1));
+    HICON ico = (HICON)LoadImageW(hi, MAKEINTRESOURCEW(1), IMAGE_ICON, GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), 0);
+    HICON icoSm = (HICON)LoadImageW(hi, MAKEINTRESOURCEW(1), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0);
     if (!ico) ico = LoadIconW(NULL, (LPCWSTR)IDI_APPLICATION);
 
     WNDCLASSEXW wc; memset(&wc, 0, sizeof wc);
     wc.cbSize = sizeof wc; wc.hInstance = hi; wc.hCursor = LoadCursorW(NULL, (LPCWSTR)IDC_ARROW); wc.hIcon = ico;
+    wc.hIconSm = icoSm;
     wc.lpfnWndProc = MainProc; wc.lpszClassName = L"VlcMasterMain";
     wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
     RegisterClassExW(&wc);
@@ -2384,6 +2548,7 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE prev, PWSTR cmd, int show)
     wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
     RegisterClassExW(&wc);
     GuideRegister(hi, ico);
+    RecRegister(hi, ico);
     wc.lpfnWndProc = HudProc; wc.lpszClassName = L"VlcMasterHud"; wc.style = 0;
     wc.hbrBackground = NULL; wc.hIcon = NULL;
     RegisterClassExW(&wc);
