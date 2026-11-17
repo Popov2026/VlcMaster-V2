@@ -387,10 +387,10 @@ static void PlayFile(const wchar_t *path, const wchar_t *title)
 static void SeekRel(int ms)
 {
     if (!g_fileMode || g_vlcState != 1 || !g_playing) return;
-    long long t = p_libvlc_media_player_get_time(g_mp) + ms, len = p_libvlc_media_player_get_length(g_mp);
+    long long t = EngTime() + ms, len = EngLength();
     if (t < 0) t = 0;
     if (len > 0 && t > len - 1000) t = len - 1000;
-    p_libvlc_media_player_set_time(g_mp, t);
+    EngSetTime(t);
     wchar_t a[24], b[24], f[80];
     FmtDur(t / 1000, a, 24); FmtDur(len / 1000, b, 24);
     swprintf(f, 80, L"%ls %d s   ·   %ls / %ls", ms < 0 ? L"◀◀" : L"▶▶", (ms < 0 ? -ms : ms) / 1000, a, b);
@@ -587,7 +587,7 @@ static void RecPosUpdate(void)
     EnableWindow(g_rseek, on);
     SetWindowTextW(g_rpb[0], g_paused ? L"▶  Lecture" : L"‖  Pause");
     if (!on) { SetWindowTextW(g_rtime, L"–:–– / –:––"); SendMessageW(g_rseek, TBM_SETPOS, TRUE, 0); return; }
-    long long len = p_libvlc_media_player_get_length(g_mp), t = p_libvlc_media_player_get_time(g_mp);
+    long long len = EngLength(), t = EngTime();
     if (g_seekDrag && len > 0) t = len * SendMessageW(g_rseek, TBM_GETPOS, 0, 0) / 1000;
     else if (len > 0) SendMessageW(g_rseek, TBM_SETPOS, TRUE, (LPARAM)(t * 1000 / len));
     wchar_t a[24], b[24], s[80];
@@ -673,8 +673,8 @@ static LRESULT CALLBACK RecWinProc(HWND h, UINT msg, WPARAM w, LPARAM l)
             else if (code == TB_ENDTRACK) {
                 g_seekDrag = 0;
                 if (g_fileMode && g_vlcState == 1) {
-                    long long len = p_libvlc_media_player_get_length(g_mp);
-                    if (len > 0) p_libvlc_media_player_set_time(g_mp, len * SendMessageW(g_rseek, TBM_GETPOS, 0, 0) / 1000);
+                    long long len = EngLength();
+                    if (len > 0) EngSetTime(len * SendMessageW(g_rseek, TBM_GETPOS, 0, 0) / 1000);
                 }
             }
         }

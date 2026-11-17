@@ -14,6 +14,12 @@ plus besoin de lancer un VLC externe ni d'activer son interface HTTP.
 - **Vidéo intégrée** : libVLC dessine l'image dans la fenêtre (Direct3D 11, décodage matériel).
 - **Liste des chaînes automatique** : lue depuis `lineup.m3u` (noms et numéros du tuner), affichable / masquable.
 - **Zapping instantané** : ← → , molette, saisie du numéro au clavier ; les appuis rapides sont regroupés.
+- **Moteur de lecture au choix** (⚙ Paramètres › Moteur de lecture) : **VLC** (libVLC intégré, par défaut), **MPC-HC** ou **MPC-BE** :
+  - MPC est lancé en mode piloté (`/slave`) et son image est incrustée dans la fenêtre, sans ses barres ; ses propres réglages ne sont pas modifiés (rendu vidéo, décodage LAV, madVR… se règlent dans MPC) ;
+  - tout le reste est identique : liste, guide, HUD, enregistrement, lecture des enregistrements avec déplacement, bordure fine, tailles ;
+  - le volume passe par le mélangeur Windows (100 % maximum) ; format d'image et désentrelacement se règlent dans MPC ;
+  - MPC est détecté automatiquement (registre, `Program Files`, K-Lite), sinon indiquez son exécutable ; le changement de moteur relance l'appli ;
+  - MPC ouvre les flux réseau plus lentement que VLC : compter environ 10 s par changement de chaîne avec MPC-BE, contre 1 à 2 s avec VLC.
 - **Bouton ⚙ Paramètres** : fenêtre **redimensionnable** et adaptative (2 colonnes quand elle est large, empilée quand elle est étroite), réglages **appliqués immédiatement** :
   - source : URL ou fichier de la playlist, rechargement à chaud ;
   - lecture : cache réseau, décodage matériel (Auto / D3D11VA / DXVA2 / logiciel), désentrelacement (Yadif, Yadif 2x, Bob…), format d'image, synchro audio ;
@@ -93,6 +99,7 @@ Résultat : `build\HomeRunPlayer.exe` (exécutable autonome, lié statiquement).
 - `src/vlcmaster.c` : application (fenêtre, lecture, paramètres, playlist).
 - `src/libvlc_dyn.h` : liaison dynamique à l'API libVLC 3.x.
 - `src/guide_data.h` / `src/guide_ui.h` : guide TV (téléchargement, mini-lecteur JSON, fenêtre grille).
+- `src/mpc.h` : moteurs MPC-HC / MPC-BE (API /slave, incrustation, volume par le mélangeur Windows).
 - `src/record.h` : enregistrement (threads de copie du flux) et fenêtre Enregistrements.
 - `res/` : icône, manifeste (thèmes, DPI) et informations de version.
 - `legacy/VlcMaster.pyw` : ancienne télécommande Python/tkinter (pilotage HTTP de VLC).
