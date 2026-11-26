@@ -30,12 +30,14 @@ static int TunerBase(wchar_t *out, int cap)
     return 1;
 }
 
+/* Chaîne d'un membre JSON convertie en UTF-16 (vide si absente). */
 static void JStrW(const JV *o, const char *k, wchar_t *out, int cap)
 {
     const char *s = JGetS(o, k);
     if (s) Utf8ToW(s, out, cap); else out[0] = 0;
 }
 
+/* Thread : lit discover.json et lineup_status.json du tuner. */
 static DWORD WINAPI TunerInfoThread(LPVOID pv)
 {
     TunerInfo *t = (TunerInfo *)pv;
@@ -68,6 +70,7 @@ static DWORD WINAPI TunerInfoThread(LPVOID pv)
 
 static void TunerUI(void);
 
+/* Relance la lecture des informations du tuner. */
 static void TunerRefresh(void)
 {
     TunerInfo *t = (TunerInfo *)calloc(1, sizeof *t);
@@ -77,6 +80,7 @@ static void TunerRefresh(void)
     if (h) CloseHandle(h); else free(t);
 }
 
+/* Informations du tuner reçues : affichage, et message si un firmware plus récent existe. */
 static void OnTuner(TunerInfo *t)
 {
     g_tuner = *t; free(t);
@@ -147,6 +151,8 @@ static DWORD WINAPI ScanThread(LPVOID pv)
     return 0;
 }
 
+/* Bouton Rechercher les chaînes : confirmation, arrêt de la lecture, lancement du scan (ou arrêt s'il
+   tourne). */
 static void ScanStart(HWND owner)
 {
     if (g_scanning) { InterlockedExchange(&g_scanAbort, 1); SetWindowTextW(U.scanInfo, TR(L"Arrêt du scan…")); return; }
@@ -173,6 +179,7 @@ static void ScanStart(HWND owner)
     TunerUI();
 }
 
+/* Progression du scan, puis fin : liste des chaînes et guide rechargés. */
 static void OnScan(WPARAM w, LPARAM l)
 {
     wchar_t t[200];
@@ -216,6 +223,7 @@ static void TunerUI(void)
     InvalidateRect(U.tunerInfo, NULL, TRUE);
 }
 
+/* Ouvre la page web du tuner. */
 static void TunerOpenPage(void)
 {
     wchar_t b[160];

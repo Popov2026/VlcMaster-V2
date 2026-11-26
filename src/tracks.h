@@ -117,6 +117,7 @@ static int TracksGet(int spu, Track *out, int max, int *cur)
     return n;
 }
 
+/* Sélectionne une piste audio ou de sous-titres par son identifiant. */
 static void TrackSet(int spu, int id)
 {
     if (g_vlcState != 1) return;
@@ -228,6 +229,7 @@ static void TracksMenuFill(HMENU m)
     }
 }
 
+/* Menu du bouton Langue. */
 static void ShowTracksMenu(int x, int y, UINT align)
 {
     HMENU m = CreatePopupMenu();

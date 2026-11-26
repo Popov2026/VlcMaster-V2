@@ -12,6 +12,7 @@
 enum { J_NULL, J_BOOL, J_NUM, J_STR, J_ARR, J_OBJ };
 typedef struct JV { int t; double n; char *s; int cnt, cap; struct JV *v; char **k; } JV;
 
+/* Libère un arbre JSON. */
 static void JFree(JV *j)
 {
     if (!j) return;
@@ -23,6 +24,7 @@ static void JFree(JV *j)
 
 static const char *JWs(const char *p) { while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') p++; return p; }
 
+/* Écrit un point de code Unicode en UTF-8. */
 static void JPutUtf8(char **o, unsigned c)
 {
     char *q = *o;
@@ -33,6 +35,7 @@ static void JPutUtf8(char **o, unsigned c)
     *o = q;
 }
 
+/* Lit 4 chiffres hexadécimaux (séquence \uXXXX). */
 static unsigned JHex4(const char *p)
 {
     unsigned v = 0;
@@ -46,6 +49,7 @@ static unsigned JHex4(const char *p)
     return v;
 }
 
+/* Lit une chaîne JSON (avec échappements) ; renvoie la position après le guillemet fermant. */
 static const char *JStr(const char *p, char **out)
 {
     p++;
@@ -79,6 +83,7 @@ static const char *JStr(const char *p, char **out)
     return e + 1;
 }
 
+/* Lit une valeur JSON (objet, tableau, chaîne, nombre, booléen, null) ; renvoie NULL si invalide. */
 static const char *JVal(const char *p, JV *j, int depth)
 {
     memset(j, 0, sizeof *j);
@@ -131,6 +136,7 @@ static const char *JVal(const char *p, JV *j, int depth)
     return e;
 }
 
+/* Membre k d'un objet JSON, ou NULL. */
 static const JV *JGet(const JV *o, const char *k)
 {
     if (!o || o->t != J_OBJ) return NULL;
@@ -155,6 +161,7 @@ static wchar_t   g_gdInfo[200] = L"";   /* rempli au démarrage (traduit) */
 static LONG      g_gdGen;
 static HWND      g_gw, g_grid;           /* fenêtre Guide TV (guide_ui.h) */
 
+/* Heure actuelle en secondes depuis 1970 (UTC). */
 static long long NowEpoch(void)
 {
     FILETIME ft; GetSystemTimeAsFileTime(&ft);
@@ -162,6 +169,7 @@ static long long NowEpoch(void)
     return (long long)(u.QuadPart / 10000000ULL) - 11644473600LL;
 }
 
+/* Convertit une heure epoch en heure locale. */
 static void EpochToLocal(long long t, SYSTEMTIME *st)
 {
     ULARGE_INTEGER u; u.QuadPart = (unsigned long long)(t + 11644473600LL) * 10000000ULL;
@@ -170,12 +178,14 @@ static void EpochToLocal(long long t, SYSTEMTIME *st)
     if (!SystemTimeToTzSpecificLocalTime(NULL, &utc, st)) *st = utc;
 }
 
+/* Formate une heure epoch en « HH:MM » locale. */
 static void FmtHM(long long t, wchar_t *o)
 {
     SYSTEMTIME s; EpochToLocal(t, &s);
     swprintf(o, 8, L"%02u:%02u", s.wHour, s.wMinute);
 }
 
+/* Copie UTF-16 allouée d'une chaîne UTF-8 (NULL si vide). */
 static wchar_t *WDup8(const char *s)
 {
     if (!s || !*s) return NULL;
@@ -186,6 +196,7 @@ static wchar_t *WDup8(const char *s)
     return w;
 }
 
+/* Libère les données du guide. */
 static void FreeGuide(GuideCh *g, int n)
 {
     if (!g) return;
@@ -196,6 +207,7 @@ static void FreeGuide(GuideCh *g, int n)
     free(g);
 }
 
+/* Ajoute une page de programmes (réponse guide.php) au guide, sans doublons, triée par heure. */
 static void MergeGuide(GuideResult *r, const JV *arr)
 {
     for (int i = 0; i < arr->cnt; i++) {
@@ -243,6 +255,7 @@ static void MergeGuide(GuideResult *r, const JV *arr)
     }
 }
 
+/* Thread : récupère DeviceAuth sur le tuner puis jusqu'à ~24 h de programmes chez SiliconDust. */
 static DWORD WINAPI GuideThread(LPVOID pv)
 {
     GuideArg *a = (GuideArg *)pv;
@@ -300,6 +313,7 @@ static int PlaylistHost(wchar_t *out, int cap)
 static void GuideRefreshUI(void);
 static void GuideFonts(void);
 
+/* Lance (ou relance) le chargement du guide si l'option est active. */
 static void GuideLoad(void)
 {
     if (!C.guide) return;
@@ -317,11 +331,13 @@ static void GuideLoad(void)
     if (t) CloseHandle(t); else free(a);
 }
 
+/* Vide le guide. */
 static void GuideClear(void)
 {
     FreeGuide(g_gd, g_ngd); g_gd = NULL; g_ngd = 0; g_gdEnd = 0;
 }
 
+/* Guide reçu : remplace l'ancien et rafraîchit liste, HUD et fenêtre Guide. */
 static void OnGuide(WPARAM gen, GuideResult *r)
 {
     if ((LONG)gen == g_gdGen && C.guide) {

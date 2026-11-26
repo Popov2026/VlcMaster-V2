@@ -22,6 +22,7 @@ static int GPpm(void)   { return S(5); }        /* pixels par minute : 30 min = 
 
 static long long Floor30(long long t) { return t - (((t % 1800) + 1800) % 1800); }
 
+/* Bornes horaires de la grille (premier et dernier programme connus). */
 static void GridRange(void)
 {
     long long now = NowEpoch();
@@ -32,6 +33,7 @@ static void GridRange(void)
             g_gtmin = Floor30(g_gd[i].p[0].st);
 }
 
+/* Met à jour les barres de défilement de la grille. */
 static void GridScroll(void)
 {
     if (!g_grid) return;
@@ -55,6 +57,7 @@ static void GridScroll(void)
 
 static void GridGoNow(void) { g_gt0 = Floor30(NowEpoch()) - 1800; GridScroll(); }
 
+/* Affiche les détails du programme sélectionné (épisode, horaire, résumé). */
 static void GridDetails(void)
 {
     if (!g_gdet) return;
@@ -87,12 +90,14 @@ static void GridSelectNow(int ci)
     if (g_grid) InvalidateRect(g_grid, NULL, FALSE);
 }
 
+/* Rectangle plein d'une couleur. */
 static void FillR(HDC dc, int l, int t, int r, int b, COLORREF c)
 {
     RECT x = { l, t, r, b };
     HBRUSH br = CreateSolidBrush(c); FillRect(dc, &x, br); DeleteObject(br);
 }
 
+/* Dessin de la grille : en-têtes d'heures, chaînes, programmes, ligne « maintenant ». */
 static void GridPaint(HDC dc, int W, int H)
 {
     const COLORREF cBg = RGB(22, 23, 28), cHdr = RGB(30, 31, 38), cName = RGB(34, 36, 43), cNameCur = RGB(0, 70, 130),
@@ -187,6 +192,7 @@ static void GridPaint(HDC dc, int W, int H)
     }
 }
 
+/* Programme sous le point (x, y) de la grille. */
 static int GridHit(int x, int y, int *ci, long long *st)
 {
     *ci = -1; *st = 0;
@@ -201,6 +207,7 @@ static int GridHit(int x, int y, int *ci, long long *st)
     return 1;
 }
 
+/* Déplace la sélection au clavier (chaîne au-dessus / en dessous, programme précédent / suivant). */
 static void GridMoveSel(int drow, int dprog)
 {
     if (!g_nvis) return;
@@ -234,6 +241,7 @@ static void GridMoveSel(int drow, int dprog)
     GridDetails();
 }
 
+/* Procédure de la grille : dessin, souris, molette, clavier. */
 static LRESULT CALLBACK GridProc(HWND h, UINT msg, WPARAM w, LPARAM l)
 {
     switch (msg) {
@@ -311,6 +319,7 @@ static LRESULT CALLBACK GridProc(HWND h, UINT msg, WPARAM w, LPARAM l)
     return DefWindowProcW(h, msg, w, l);
 }
 
+/* Mise en page de la fenêtre Guide TV. */
 static void GuideLayout(int W, int H)
 {
     int m = S(10), bh = S(30), detH = S(118), x = m;
@@ -328,6 +337,7 @@ static void GuideLayout(int W, int H)
     EndDeferWindowPos(d);
 }
 
+/* Polices de la fenêtre Guide TV. */
 static void GuideFonts(void)
 {
     if (g_gfBold) DeleteObject(g_gfBold);
@@ -335,6 +345,7 @@ static void GuideFonts(void)
     if (g_gw) EnumChildWindows(g_gw, SetFontProc, (LPARAM)g_font);
 }
 
+/* Procédure de la fenêtre Guide TV (boutons, redimensionnement). */
 static LRESULT CALLBACK GuideWinProc(HWND h, UINT msg, WPARAM w, LPARAM l)
 {
     switch (msg) {
@@ -379,6 +390,7 @@ static LRESULT CALLBACK GuideWinProc(HWND h, UINT msg, WPARAM w, LPARAM l)
     return DefWindowProcW(h, msg, w, l);
 }
 
+/* Enregistre les classes de fenêtres du guide. */
 static void GuideRegister(HINSTANCE hi, HICON ico)
 {
     WNDCLASSEXW wc; memset(&wc, 0, sizeof wc);
@@ -393,6 +405,7 @@ static void GuideRegister(HINSTANCE hi, HICON ico)
 
 static int RectOnScreen(const RECT *r);
 
+/* Ouvre (ou ramène) la fenêtre Guide TV, positionnée sur « maintenant » et la chaîne en cours. */
 static void OpenGuide(void)
 {
     if (g_gw) {

@@ -92,6 +92,7 @@ static int RecEnsureDir(wchar_t *dir)
     return 0;
 }
 
+/* Remplace les caractères interdits dans un nom de fichier par des équivalents visuels. */
 static void SanitizeFn(wchar_t *s)
 {
     /* caractères interdits -> équivalents visuels (« 12/13 » reste lisible) */
@@ -103,12 +104,14 @@ static void SanitizeFn(wchar_t *s)
     }
 }
 
+/* Taille lisible (Mo / Go). */
 static void FmtSize(ULONGLONG b, wchar_t *o, int cap)
 {
     if (b >= 1000000000ull) swprintf(o, cap, TR(L"%.2f Go"), b / 1e9);
     else swprintf(o, cap, TR(L"%.0f Mo"), b / 1e6);
 }
 
+/* Durée lisible (m:ss ou h:mm:ss). */
 static void FmtDur(long long s, wchar_t *o, int cap)
 {
     if (s < 0) s = 0;
@@ -116,6 +119,7 @@ static void FmtDur(long long s, wchar_t *o, int cap)
     else swprintf(o, cap, L"%lld:%02lld", s / 60, s % 60);
 }
 
+/* Nombre d'enregistrements en cours. */
 static int RecCount(void)
 {
     int n = 0;
@@ -123,6 +127,7 @@ static int RecCount(void)
     return n;
 }
 
+/* Enregistrement en cours pour la chaîne ch, ou -1. */
 static int RecForCh(int ch)
 {
     if (ch < 0 || ch >= g_nch) return -1;
@@ -138,6 +143,8 @@ static void RecRowsUpdate(void);
 /* ------------------------------------------------------------------ */
 #define REC_BUF (256 * 1024)
 
+/* Thread d'enregistrement : copie le flux HTTP du tuner dans le fichier .ts, se reconnecte si le flux
+   coupe. */
 static DWORD WINAPI RecThread(LPVOID pv)
 {
     Rec *r = (Rec *)pv;
@@ -262,6 +269,7 @@ static void RecStart(int ch, long long endAt)
     RecChanged();
 }
 
+/* Demande l'arrêt d'un enregistrement (interrompt la lecture réseau en cours). */
 static void RecStop(int i)
 {
     if (i < 0 || i >= MAXREC || !g_rec[i].used) return;
@@ -306,6 +314,7 @@ static void RecTick(void)
     UpdateStatus();
 }
 
+/* Arrête tous les enregistrements et attend la fin des threads. */
 static void RecStopAll(void)
 {
     HANDLE hs[MAXREC]; int n = 0;
@@ -321,6 +330,7 @@ static void RecToggleCur(void)
     else RecStart(HudCh(), -1);
 }
 
+/* Menu de la flèche du bouton Enregistrer (durées, arrêt de chaque enregistrement). */
 static void ShowRecMenu(int x, int y, UINT align)
 {
     HMENU m = CreatePopupMenu();
@@ -384,6 +394,7 @@ static void PlayFile(const wchar_t *path, const wchar_t *title)
     if (g_rw) RecRowsUpdate();
 }
 
+/* Avance / recule de ms dans l'enregistrement en lecture. */
 static void SeekRel(int ms)
 {
     if (!g_fileMode || g_vlcState != 1 || !g_playing) return;
@@ -405,6 +416,7 @@ static int CmpRF(const void *a, const void *b)
     return -CompareFileTime(&((const RFile *)a)->ct, &((const RFile *)b)->ct);
 }
 
+/* Liste les fichiers .ts du dossier des enregistrements (titre, chaîne, date, durée, taille). */
 static void RecScan(void)
 {
     free(g_rf); g_rf = NULL; g_nrf = 0;
@@ -451,12 +463,14 @@ static void RecScan(void)
     if (g_nrf > 1) qsort(g_rf, (size_t)g_nrf, sizeof(RFile), CmpRF);
 }
 
+/* Enregistrement en cours qui écrit ce fichier, ou -1. */
 static int RecOfFile(const RFile *f)
 {
     for (int i = 0; i < MAXREC; i++) if (g_rec[i].used && !_wcsicmp(g_rec[i].path, f->path)) return i;
     return -1;
 }
 
+/* Met à jour durée, taille et état d'une ligne de la liste des enregistrements. */
 static void RecRow(int i)
 {
     RFile *f = &g_rf[i];
@@ -476,18 +490,21 @@ static void RecRow(int i)
     ListView_SetItemText(g_rlv, i, 5, stt);
 }
 
+/* Met à jour toutes les lignes (enregistrements en cours, lecture). */
 static void RecRowsUpdate(void)
 {
     if (!g_rw) return;
     for (int i = 0; i < g_nrf; i++) RecRow(i);
 }
 
+/* Ligne sélectionnée dans la liste des enregistrements, ou -1. */
 static int RecSel(void)
 {
     int s = g_rlv ? ListView_GetNextItem(g_rlv, -1, LVNI_SELECTED) : -1;
     return (s >= 0 && s < g_nrf) ? s : -1;
 }
 
+/* Remplit la liste des enregistrements et la ligne d'information (total, espace libre). */
 static void RecFill(void)
 {
     if (!g_rw) return;
@@ -525,6 +542,7 @@ static void RecFill(void)
     SetWindowTextW(g_rinfo, t);
 }
 
+/* Lit l'enregistrement sélectionné dans la fenêtre principale. */
 static void RecPlaySel(void)
 {
     int s = RecSel();
@@ -535,6 +553,7 @@ static void RecPlaySel(void)
     PlayFile(g_rf[s].path, t);
 }
 
+/* Envoie l'enregistrement sélectionné à la Corbeille (après confirmation). */
 static void RecDeleteSel(void)
 {
     int s = RecSel();
@@ -565,6 +584,7 @@ static void RecDeleteSel(void)
     RecFill();
 }
 
+/* Ouvre le dossier des enregistrements dans l'Explorateur (fichier sélectionné). */
 static void RecOpenFolder(void)
 {
     int s = RecSel();
@@ -596,6 +616,7 @@ static void RecPosUpdate(void)
     SetWindowTextW(g_rtime, s);
 }
 
+/* Mise en page de la fenêtre Enregistrements. */
 static void RecLayout(int W, int H)
 {
     int m = S(10), bh = S(30), g = S(6), x = m;
@@ -623,11 +644,13 @@ static void RecLayout(int W, int H)
     for (int i = 0; i < 6; i++) ListView_SetColumnWidth(g_rlv, i, cw * pc[i] / 100);
 }
 
+/* Polices de la fenêtre Enregistrements. */
 static void RecFonts(void)
 {
     if (g_rw) EnumChildWindows(g_rw, SetFontProc, (LPARAM)g_font);
 }
 
+/* Procédure de la fenêtre Enregistrements (boutons, liste, barre de position). */
 static LRESULT CALLBACK RecWinProc(HWND h, UINT msg, WPARAM w, LPARAM l)
 {
     switch (msg) {
@@ -726,6 +749,7 @@ static LRESULT CALLBACK RecWinProc(HWND h, UINT msg, WPARAM w, LPARAM l)
     return DefWindowProcW(h, msg, w, l);
 }
 
+/* Enregistre la classe de la fenêtre Enregistrements. */
 static void RecRegister(HINSTANCE hi, HICON ico)
 {
     WNDCLASSEXW wc; memset(&wc, 0, sizeof wc);
@@ -735,6 +759,7 @@ static void RecRegister(HINSTANCE hi, HICON ico)
     RegisterClassExW(&wc);
 }
 
+/* Ouvre (ou ramène) la fenêtre Enregistrements. */
 static void OpenRecordings(void)
 {
     if (g_rw) {

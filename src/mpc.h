@@ -61,6 +61,7 @@ static int       g_mpcDelay;               /* délai audio déjà transmis (MPC 
 /* ------------------------------------------------------------------ */
 static int FileExists(const wchar_t *p) { DWORD a = GetFileAttributesW(p); return a != INVALID_FILE_ATTRIBUTES && !(a & FILE_ATTRIBUTE_DIRECTORY); }
 
+/* Chemin d'exécutable lu dans le registre, s'il existe. */
 static int RegExe(HKEY root, const wchar_t *key, const wchar_t *val, wchar_t *out)
 {
     DWORD sz = MAX_PATH * sizeof(wchar_t);
@@ -68,6 +69,7 @@ static int RegExe(HKEY root, const wchar_t *key, const wchar_t *val, wchar_t *ou
     return FileExists(out);
 }
 
+/* Cherche mpc-hc64.exe / mpc-be64.exe (réglage, registre, Program Files, K-Lite). */
 static int MpcFind(int eng, wchar_t *out)
 {
     if (C.mpcPath[0]) { wcsncpy(out, C.mpcPath, MAX_PATH - 1); out[MAX_PATH - 1] = 0; return FileExists(out); }
@@ -154,6 +156,7 @@ static void MpcSend(DWORD cmd, const wchar_t *s)
     SendMessageTimeoutW(g_mpcWnd, WM_COPYDATA, (WPARAM)g_main, (LPARAM)&cd, SMTO_ABORTIFHUNG, 3000, NULL);
 }
 
+/* Volume et muet de MPC via le mélangeur Windows ; délai audio via l'API (seulement s'il change). */
 static void MpcAudio(void)
 {
     if (!g_mpcWnd) return;
@@ -169,6 +172,7 @@ static void MpcAudio(void)
 
 /* Ne laisse voir que la vue vidéo de MPC : ses barres débordent hors de la zone. */
 typedef struct { HWND parent, best; long area; RECT r; } MpcView;
+/* Recherche de la vue vidéo de MPC (plus grande fenêtre enfant). */
 static BOOL CALLBACK MpcViewProc(HWND h, LPARAM l)
 {
     MpcView *v = (MpcView *)l;
@@ -180,6 +184,7 @@ static BOOL CALLBACK MpcViewProc(HWND h, LPARAM l)
     return TRUE;
 }
 
+/* Dimensionne la fenêtre MPC incrustée pour que seule sa vue vidéo soit visible. */
 static void MpcFit(void)
 {
     if (!g_mpcWnd || !g_host) return;
@@ -202,6 +207,7 @@ static void MpcFit(void)
         SetWindowPos(g_mpcWnd, HWND_BOTTOM, x, y, W, H, SWP_NOACTIVATE | SWP_NOOWNERZORDER);
 }
 
+/* Incruste la fenêtre de MPC dans la zone vidéo (enfant, sans cadre, désactivée). */
 static void MpcEmbed(void)
 {
     HWND w = g_mpcWnd;
@@ -219,6 +225,7 @@ static void MpcEmbed(void)
     if (GetForegroundWindow() != g_main && !g_quitting) SetForegroundWindow(g_main);
 }
 
+/* Montre / cache la fenêtre MPC incrustée. */
 static void MpcShow(int on)
 {
     if (!g_mpcWnd) return;
@@ -256,6 +263,7 @@ static void MpcStart(void)
     SetTimer(g_main, TMR_MPC, 500, NULL);
 }
 
+/* Ferme MPC proprement (détaché puis CMD_CLOSEAPP), sinon de force. */
 static void MpcQuit(void)
 {
     if (!g_mpcProc) return;
@@ -302,6 +310,7 @@ static void MpcTick(void)
     else g_mpcAudioUntil = 0;
 }
 
+/* Ouvre une URL ou un fichier dans MPC. */
 static void MpcOpen(const wchar_t *url)
 {
     g_mpcPos = 0; g_mpcDur = 0; g_mpcNewFile = 1;
@@ -371,18 +380,21 @@ static void EngStart(void)
     MpcStart();
 }
 
+/* Position de lecture (ms) quel que soit le moteur. */
 static long long EngTime(void)
 {
     if (g_vlcState != 1) return 0;
     return g_engine ? (long long)(g_mpcPos * 1000) : p_libvlc_media_player_get_time(g_mp);
 }
 
+/* Durée (ms) quel que soit le moteur. */
 static long long EngLength(void)
 {
     if (g_vlcState != 1) return 0;
     return g_engine ? (long long)(g_mpcDur * 1000) : p_libvlc_media_player_get_length(g_mp);
 }
 
+/* Déplacement dans la lecture (ms). */
 static void EngSetTime(long long ms)
 {
     if (g_vlcState != 1) return;
@@ -394,6 +406,7 @@ static void EngSetTime(long long ms)
     } else p_libvlc_media_player_set_time(g_mp, ms);
 }
 
+/* Pause / reprise quel que soit le moteur. */
 static void EngSetPause(int on)
 {
     if (g_vlcState != 1) return;
@@ -401,6 +414,7 @@ static void EngSetPause(int on)
     else p_libvlc_media_player_set_pause(g_mp, on);
 }
 
+/* Résolution de la vidéo (libVLC seulement). */
 static int EngVideoSize(unsigned *w, unsigned *h)
 {
     if (g_vlcState != 1 || g_engine) return -1;

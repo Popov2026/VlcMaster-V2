@@ -1,12 +1,45 @@
 /*
  * HomeRun Player — lecteur TV pour HDHomeRun (Win32 + libVLC)
+ * By Popov ©2026 (anciennement « VLC Master »).
  *
- * Anciennement « VLC Master ». La vidéo est rendue directement dans la fenêtre de l'application via
- * libVLC (plus de VLC externe piloté en HTTP). libvlc.dll est chargée
- * dynamiquement : il suffit qu'un VLC 3.x 64 bits soit installé (ou que
- * son dossier soit indiqué dans les paramètres).
+ * ── Vue d'ensemble ─────────────────────────────────────────────────────────
+ * Programme Win32 en C, un seul .exe lié statiquement.  La vidéo est dessinée
+ * DANS la fenêtre par libVLC (libvlc.dll chargée dynamiquement : il suffit d'un
+ * VLC 3.x 64 bits installé), ou par MPC-HC / MPC-BE incrusté (mpc.h).
  *
- * By Popov ©2026 — réécriture C.
+ * ── Fichiers ───────────────────────────────────────────────────────────────
+ *   vlcmaster.c   fenêtre principale, lecture, liste des chaînes, HUD, barre de
+ *                 commandes, plein écran / bordure fine / tailles, Paramètres,
+ *                 point d'entrée.  Inclut les modules ci-dessous (une seule
+ *                 unité de compilation : tout est « static »).
+ *   libvlc_dyn.h  signatures libVLC 3.x résolues avec GetProcAddress.
+ *   lang.h        TR() : traduction des textes (table lang_table.h, 6 langues).
+ *   guide_data.h  guide TV : mini-lecteur JSON, téléchargement (SiliconDust).
+ *   guide_ui.h    fenêtre Guide TV (grille horaire).
+ *   mpc.h         moteurs MPC-HC / MPC-BE (API /slave) + interface commune Eng*().
+ *   record.h      enregistrement (copie du flux en .ts) + fenêtre Enregistrements.
+ *   pip.h         image dans l'image (second lecteur libVLC).
+ *   tracks.h      langues audio et sous-titres.
+ *   tuner.h       infos du HDHomeRun, firmware, scan des chaînes.
+ *   update.h      vérification des nouvelles versions + bandeau.
+ *
+ * ── Threads et messages ────────────────────────────────────────────────────
+ * L'interface tourne dans le thread principal.  Tout ce qui peut bloquer est
+ * fait dans un thread qui renvoie son résultat par PostMessage :
+ *   VlcWorker        libVLC (ouvrir / arrêter, image principale et PIP) ;
+ *                    événements → WM_APP_VLCEVENT / WM_APP_PIPEVENT
+ *   PlaylistThread   playlist M3U                → WM_APP_PLAYLIST
+ *   GuideThread      guide TV                    → WM_APP_GUIDE
+ *   RecThread        un par enregistrement       → WM_APP_REC (fin)
+ *   TunerInfoThread / ScanThread  tuner          → WM_APP_TUNER / WM_APP_SCAN
+ *   UpdThread        nouvelle version            → WM_APP_UPD
+ * Les demandes au thread libVLC passent par g_req / g_req2 (section critique +
+ * événement) : un zapping rapide ne garde que la dernière chaîne demandée.
+ *
+ * ── Réglages ───────────────────────────────────────────────────────────────
+ * Structure C, lue / écrite dans HomeRunPlayer.ini (UTF-16) à côté de l'exe ou
+ * dans %APPDATA%\HomeRunPlayer.  Les chaînes sont repérées par un hachage de leur
+ * URL (noms personnalisés, masquage, ordre).
  */
 #ifndef UNICODE
 #define UNICODE
@@ -221,11 +254,13 @@ static void Utf8ToW(const char *s, wchar_t *out, int cap)
     if (tmp != out) { wcsncpy(out, tmp, (size_t)cap - 1); out[cap - 1] = 0; free(tmp); }
 }
 
+/* Conversion UTF-16 (Windows) → UTF-8 (libVLC, URL) ; tronque proprement à cap octets. */
 static void WToUtf8(const wchar_t *s, char *out, int cap)
 {
     if (!WideCharToMultiByte(CP_UTF8, 0, s, -1, out, cap, NULL, NULL)) out[0] = 0;
 }
 
+/* Hachage FNV-1a 64 bits d'une URL : clé stable d'une chaîne dans l'INI (nom, masquage, ordre). */
 static unsigned long long Fnv(const char *s)
 {
     unsigned long long h = 1469598103934665603ULL;
@@ -233,6 +268,7 @@ static unsigned long long Fnv(const char *s)
     return h;
 }
 
+/* Retire les espaces en début et en fin de chaîne (sur place). */
 static void TrimW(wchar_t *s)
 {
     wchar_t *p = s; while (*p == L' ' || *p == L'\t' || *p == L'"') p++;
@@ -242,6 +278,7 @@ static void TrimW(wchar_t *s)
     if (n > 3 && s[n-1] == L'\\') s[--n] = 0;   /* « C:\VLC\ » -> « C:\VLC » */
 }
 
+/* Police Segoe UI de la taille donnée (en points) pour un DPI donné. */
 static HFONT MakeFont(UINT dpi, int pt, int weight)
 {
     return CreateFontW(-MulDiv(pt, (int)dpi, 72), 0, 0, 0, weight, 0, 0, 0, DEFAULT_CHARSET,
@@ -251,12 +288,14 @@ static HFONT MakeFont(UINT dpi, int pt, int weight)
 
 static BOOL CALLBACK SetFontProc(HWND h, LPARAM f) { SendMessageW(h, WM_SETFONT, (WPARAM)f, TRUE); return TRUE; }
 
+/* Crée un contrôle enfant visible (bouton, liste, zone de texte…) avec son identifiant. */
 static HWND Mk(HWND parent, const wchar_t *cls, const wchar_t *txt, DWORD style, DWORD ex, int id)
 {
     return CreateWindowExW(ex, cls, txt, WS_CHILD | WS_VISIBLE | style, 0, 0, 10, 10,
                            parent, (HMENU)(INT_PTR)id, g_hi, NULL);
 }
 
+/* Boîte « Ouvrir un fichier » ; renvoie 1 et le chemin dans out si l'utilisateur valide. */
 static int PickFile(HWND owner, const wchar_t *filter, const wchar_t *title, wchar_t *out, int cap)
 {
     OPENFILENAMEW o; memset(&o, 0, sizeof o);
@@ -283,6 +322,8 @@ static int TryCreateIni(const wchar_t *path)
     return 1;
 }
 
+/* Choisit le fichier de réglages : HomeRunPlayer.ini à côté de l'exe, sinon dans %APPDATA%. Reprend un
+   ancien VlcMaster.ini. */
 static void InitIniPath(void)
 {
     /* Reprise automatique des réglages de l'ancienne version (VlcMaster.ini). */
@@ -302,16 +343,19 @@ static void InitIniPath(void)
     }
 }
 
+/* Lit un entier dans l'INI (valeur par défaut si absent). */
 static int IniInt(const wchar_t *sec, const wchar_t *k, int def)
 {
     wchar_t b[32];
     GetPrivateProfileStringW(sec, k, L"", b, 32, g_ini);
     return b[0] ? _wtoi(b) : def;
 }
+/* Écrit un entier dans l'INI. */
 static void IniPutInt(const wchar_t *sec, const wchar_t *k, int v)
 {
     wchar_t b[32]; swprintf(b, 32, L"%d", v); WritePrivateProfileStringW(sec, k, b, g_ini);
 }
+/* Lit un rectangle « gauche,haut,droite,bas » (position d'une fenêtre) dans l'INI. */
 static void IniRect(const wchar_t *k, RECT *r)
 {
     wchar_t b[96]; long a, t, w, h;
@@ -319,6 +363,7 @@ static void IniRect(const wchar_t *k, RECT *r)
     if (swscanf(b, L"%ld,%ld,%ld,%ld", &a, &t, &w, &h) == 4) SetRect(r, a, t, w, h);
     else SetRectEmpty(r);
 }
+/* Écrit un rectangle (position d'une fenêtre) dans l'INI. */
 static void IniPutRect(const wchar_t *k, const RECT *r)
 {
     wchar_t b[96]; swprintf(b, 96, L"%ld,%ld,%ld,%ld", r->left, r->top, r->right, r->bottom);
@@ -327,6 +372,7 @@ static void IniPutRect(const wchar_t *k, const RECT *r)
 
 static int Clamp(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
 
+/* Charge tous les réglages (structure C) depuis l'INI, avec bornes et valeurs par défaut. */
 static void LoadConfig(void)
 {
     GetPrivateProfileStringW(L"General", L"Playlist", L"http://192.168.1.90/lineup.m3u", C.playlist, 2048, g_ini);
@@ -371,6 +417,7 @@ static void LoadConfig(void)
     IniRect(L"Parametres2", &C.setrc);
 }
 
+/* Enregistre tous les réglages (structure C) dans l'INI. */
 static void SaveConfig(void)
 {
     WritePrivateProfileStringW(L"General", L"Playlist", C.playlist, g_ini);
@@ -442,6 +489,7 @@ static void SaveChannels(void)
 typedef struct { Channel *ch; int n; wchar_t err[256]; } PlResult;
 typedef struct { wchar_t *src; LONG gen; } PlArg;
 
+/* La source ressemble-t-elle à une playlist M3U (extension) plutôt qu'à un flux direct ? */
 static int IsM3U(const wchar_t *s)
 {
     size_t n = wcscspn(s, L"?#");
@@ -450,6 +498,8 @@ static int IsM3U(const wchar_t *s)
     return 0;
 }
 
+/* Télécharge une URL (sans cache) en mémoire ; renvoie un tampon terminé par 0 à libérer, ou NULL et le
+   message d'erreur. */
 static char *ReadHttp(const wchar_t *url, size_t *len, wchar_t *err)
 {
     char *buf = NULL; size_t n = 0, cap = 0;
@@ -487,6 +537,7 @@ static char *ReadHttp(const wchar_t *url, size_t *len, wchar_t *err)
     return buf;
 }
 
+/* Lit un fichier local en mémoire (playlist sur disque). */
 static char *ReadLocal(const wchar_t *path, size_t *len, wchar_t *err)
 {
     HANDLE f = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
@@ -500,6 +551,7 @@ static char *ReadLocal(const wchar_t *path, size_t *len, wchar_t *err)
     return buf;
 }
 
+/* Ajoute une chaîne au résultat de l'analyse de la playlist (tableau agrandi au besoin). */
 static void AddCh(PlResult *r, int *cap, const char *name, const char *num, const char *url)
 {
     if (r->n >= *cap) {
@@ -520,6 +572,7 @@ static void AddCh(PlResult *r, int *cap, const char *name, const char *num, cons
     r->n++;
 }
 
+/* Extrait la valeur d'un attribut d'une ligne #EXTINF (ex. tvg-chno="5"). */
 static void AttrVal(const char *line, const char *attr, char *out, int cap)
 {
     out[0] = 0;
@@ -531,6 +584,7 @@ static void AttrVal(const char *line, const char *attr, char *out, int cap)
     out[i] = 0;
 }
 
+/* Analyse une playlist M3U : nom, numéro et URL de chaque chaîne. */
 static void ParseM3U(char *buf, PlResult *r)
 {
     int cap = 0;
@@ -557,6 +611,7 @@ static void ParseM3U(char *buf, PlResult *r)
     }
 }
 
+/* Thread : télécharge ou lit la playlist puis l'analyse ; résultat envoyé par WM_APP_PLAYLIST. */
 static DWORD WINAPI PlaylistThread(LPVOID pv)
 {
     PlArg *a = (PlArg *)pv;
@@ -588,6 +643,8 @@ static DWORD WINAPI PlaylistThread(LPVOID pv)
 /* ------------------------------------------------------------------ */
 #include "guide_data.h"
 
+/* Rappel libVLC (thread de libVLC) : transmet l'événement à la fenêtre principale par message (image
+   principale ou PIP selon ud). */
 static void VlcEvent(const vlc_event_t *e, void *ud)
 {
     static int lastBuf[2] = { -1, -1 };
@@ -601,6 +658,7 @@ static void VlcEvent(const vlc_event_t *e, void *ud)
     PostMessageW(g_main, k ? WM_APP_PIPEVENT : WM_APP_VLCEVENT, (WPARAM)e->type, l);
 }
 
+/* Essaie de charger libvlc.dll depuis un dossier ; mémorise le dossier retenu. */
 static HMODULE TryVlcDir(const wchar_t *dir, DWORD *err)
 {
     if (!dir || !dir[0]) return NULL;
@@ -614,6 +672,8 @@ static HMODULE TryVlcDir(const wchar_t *dir, DWORD *err)
     return h;
 }
 
+/* Cherche libVLC : dossier choisi, registre, dossier de l'exe, Program Files ; message clair en cas
+   d'échec. */
 static HMODULE LoadVlc(void)
 {
     DWORD err = 0; HMODULE h;
@@ -643,6 +703,7 @@ static HMODULE LoadVlc(void)
     return NULL;
 }
 
+/* Ouvre une URL ou un fichier dans un lecteur libVLC avec les options de cache et de décodage. */
 static void VlcOpen(libvlc_media_player_t *mp, const char *url, int caching, const char *hw, int pip)
 {
     libvlc_media_t *m = strstr(url, "://") ? p_libvlc_media_new_location(g_inst, url)
@@ -657,6 +718,8 @@ static void VlcOpen(libvlc_media_player_t *mp, const char *url, int caching, con
     p_libvlc_media_player_play(mp);
 }
 
+/* Thread libVLC : charge la bibliothèque, crée les deux lecteurs (image principale et PIP), puis exécute
+   les demandes de lecture / arrêt (les zappings rapides sont regroupés). */
 static DWORD WINAPI VlcWorker(LPVOID unused)
 {
     (void)unused;
@@ -741,6 +804,7 @@ static DWORD WINAPI VlcWorker(LPVOID unused)
     return 0;
 }
 
+/* Lance le thread libVLC (une seule fois). */
 static void StartVlc(void)
 {
     if (g_workerAlive || g_vlcState == 1) return;
@@ -770,12 +834,14 @@ static void PipResume(void);
 static void PipOff(void);
 static void TunerRefresh(void);
 
+/* Texte affiché au centre de la zone vidéo quand rien n'est lu. */
 static void SetHostMsg(const wchar_t *m)
 {
     wcsncpy(g_hostMsg, m, 511); g_hostMsg[511] = 0;
     if (g_host) InvalidateRect(g_host, NULL, FALSE);
 }
 
+/* Message éphémère (1,5 s) dans la barre d'état et le HUD. */
 static void Flash(const wchar_t *t)
 {
     wcsncpy(g_flash, t, 95); g_flash[95] = 0;
@@ -791,6 +857,7 @@ static void OnVlcEvent(int type, int val);
 static BOOL CALLBACK DisableProc(HWND h, LPARAM l);
 #include "mpc.h"
 
+/* Demande la lecture de la chaîne courante (ou de l'enregistrement en lecture) au moteur actif. */
 static void RequestPlayCur(void)
 {
     if (!g_fileMode && (g_cur < 0 || g_cur >= g_nch)) return;
@@ -811,6 +878,7 @@ static void RequestPlayCur(void)
     SetEvent(g_wake);
 }
 
+/* Applique format d'image et désentrelacement aux lecteurs libVLC. */
 static void ApplyVideoOpts(void)
 {
     if (g_vlcState != 1 || g_engine) return;
@@ -822,6 +890,7 @@ static void ApplyVideoOpts(void)
     }
 }
 
+/* Applique volume, muet et synchro audio ; une seule image (principale ou PIP) a le son. */
 static void ApplyAudio(void)
 {
     if (g_vlcState == 1 && g_engine) MpcAudio();
@@ -840,6 +909,7 @@ static void ApplyAudio(void)
     BarTexts();
 }
 
+/* Règle le volume (0-150 %) et l'affiche. */
 static void SetVolume(int v)
 {
     C.volume = Clamp(v, 0, 150); C.muted = 0;
@@ -847,12 +917,14 @@ static void SetVolume(int v)
     wchar_t t[48]; swprintf(t, 48, TR(L"Volume %d %%"), C.volume); Flash(t);
 }
 
+/* Coupe / rétablit le son. */
 static void ToggleMute(void)
 {
     C.muted = !C.muted; ApplyAudio();
     Flash(C.muted ? TR(L"Son coupé") : TR(L"Son rétabli"));
 }
 
+/* Pause / reprise ; relance la lecture si elle était arrêtée. */
 static void TogglePause(void)
 {
     if (g_vlcState != 1) return;
@@ -860,6 +932,7 @@ static void TogglePause(void)
     EngSetPause(!g_paused);
 }
 
+/* Arrête la lecture de l'image principale (à la demande de l'utilisateur). */
 static void StopPlayback(void)
 {
     g_userStopped = 1;
@@ -870,6 +943,8 @@ static void StopPlayback(void)
     SetEvent(g_wake);
 }
 
+/* Joue la chaîne i dans l'image principale : sélection dans la liste, message d'attente, demande au
+   moteur, HUD. */
 static void PlayChannel(int i)
 {
     if (i < 0 || i >= g_nch) return;
@@ -886,12 +961,14 @@ static void PlayChannel(int i)
     ShowHud();
 }
 
+/* Position d'une chaîne dans la liste visible (chaînes non masquées), -1 si absente. */
 static int VisPos(int ch)
 {
     for (int v = 0; v < g_nvis; v++) if (g_vis[v] == ch) return v;
     return -1;
 }
 
+/* Chaîne précédente / suivante (step = -1 / +1) dans l'image qui a le son. */
 static void Zap(int step)
 {
     if (!g_nvis) return;
@@ -910,6 +987,7 @@ static void RebuildVisible(void)
     for (int i = 0; i < g_nch; i++) if (!g_ch[i].hidden) g_vis[g_nvis++] = i;
 }
 
+/* Libellé « numéro   nom » d'une chaîne de la liste. */
 static void ChannelLabel(int v, wchar_t *t, int cap)
 {
     const Channel *c = &g_ch[g_vis[v]];
@@ -990,6 +1068,7 @@ static void DrawChannelItem(const DRAWITEMSTRUCT *d)
     if (d->itemState & ODS_FOCUS) { RECT f = rc; InflateRect(&f, -1, -1); DrawFocusRect(dc, &f); }
 }
 
+/* Remplit la liste des chaînes de la fenêtre principale. */
 static void FillMainList(void)
 {
     SendMessageW(g_list, WM_SETREDRAW, FALSE, 0);
@@ -1004,6 +1083,8 @@ static void FillMainList(void)
     InvalidateRect(g_list, NULL, TRUE);
 }
 
+/* Après modification des chaînes (ordre, masquage, noms) : liste reconstruite et, si save, réglages
+   enregistrés. */
 static void ChannelsChanged(int save)
 {
     RebuildVisible();
@@ -1012,6 +1093,7 @@ static void ChannelsChanged(int save)
     UpdateStatus();
 }
 
+/* Tri des chaînes : ordre choisi par l'utilisateur, sinon ordre de la playlist. */
 static int CmpCh(const void *a, const void *b)
 {
     const Channel *x = (const Channel *)a, *y = (const Channel *)b;
@@ -1020,6 +1102,7 @@ static int CmpCh(const void *a, const void *b)
     return ka < kb ? -1 : ka > kb;
 }
 
+/* Lance le chargement de la playlist en arrière-plan. */
 static void LoadPlaylist(void)
 {
     LONG gen = InterlockedIncrement(&g_plGen);
@@ -1039,6 +1122,8 @@ static void LoadPlaylist(void)
     if (t) CloseHandle(t); else { free(a->src); free(a); }
 }
 
+/* Playlist reçue : noms / masquage / ordre de l'INI appliqués, chaîne reprise, PIP et infos du tuner mis à
+   jour. */
 static void OnPlaylist(WPARAM gen, PlResult *r)
 {
     if ((LONG)gen != g_plGen) { free(r->ch); free(r); return; }
@@ -1103,6 +1188,7 @@ static int ThinFrame(void) { return C.thin && !g_full; }
 static int ThinB(void)     { return ThinFrame() ? S(2) : 0; }       /* liseré visible */
 static int AutoBar(void)   { return g_full || (C.thin && C.thinHideBar); }
 
+/* Active le minuteur qui fait apparaître la barre au survol (plein écran, bordure fine). */
 static void UpdateAutoBar(void)
 {
     if (AutoBar()) SetTimer(g_main, TMR_FS, 200, NULL);
@@ -1124,6 +1210,7 @@ static void ApplyCorners(void)
     fn(g_main, 33 /* DWMWA_WINDOW_CORNER_PREFERENCE */, &pref, sizeof pref);
 }
 
+/* Passe en plein écran (sur l'écran de la fenêtre) ou revient à la fenêtre. */
 static void SetFullscreen(int on)
 {
     if (on == g_full) return;
@@ -1176,6 +1263,7 @@ static void SetThin(int on)
 /* ---- Tailles prédéfinies : « 1080p » = image 1920×1080, ou « 1280x720 » ---- */
 typedef struct { wchar_t label[24]; int w, h; } SizePreset;
 
+/* Analyse les tailles prédéfinies du bouton Taille (« 1080p, 720p, 1280x720… »). */
 static int ParseSizes(SizePreset *out, int max)
 {
     wchar_t buf[256]; wcsncpy(buf, C.sizes, 255); buf[255] = 0;
@@ -1196,11 +1284,13 @@ static int ParseSizes(SizePreset *out, int max)
     return n;
 }
 
+/* Met à jour le libellé du bouton Taille. */
 static void UpdateSizeButton(void)
 {
     BarTexts();
 }
 
+/* Change le texte d'un bouton seulement s'il est différent (évite le scintillement). */
 static void SetBtnText(int id, const wchar_t *t)
 {
     wchar_t cur[64]; GetDlgItemTextW(g_main, id, cur, 64);
@@ -1234,6 +1324,7 @@ static void BarTexts(void)
     SetBtnText(IDC_CHANS, k ? L"\u2630" : TR(L"\u2630  Chaînes"));
 }
 
+/* Redimensionne la fenêtre pour que l'image ait exactement la taille prédéfinie choisie. */
 static void ApplySizePreset(int idx)
 {
     SizePreset ps[16]; int n = ParseSizes(ps, 16);
@@ -1273,6 +1364,7 @@ static void ApplySizePreset(int idx)
     Flash(t);
 }
 
+/* Menu de la flèche du bouton Taille. */
 static void ShowSizeMenu(int x, int y, UINT align)
 {
     SizePreset ps[16]; int n = ParseSizes(ps, 16);
@@ -1287,6 +1379,7 @@ static void ShowSizeMenu(int x, int y, UINT align)
     DestroyMenu(m);
 }
 
+/* Minuteur : montre / cache la barre de commandes selon la position de la souris. */
 static void FsTick(void)
 {
     POINT pt; RECT rc;
@@ -1325,6 +1418,8 @@ static const BarItem BAR[] = {
     { IDC_CHANS,    L"☰  Chaînes",   L"Afficher / masquer la liste  (L)",      98, 5, 1, 40 },
 };
 
+/* Mise en page de la fenêtre principale : bandeau, image, liste, barre de commandes (libellés courts ou
+   boutons masqués si la place manque). */
 static void LayoutMain(void)
 {
     RECT rc; GetClientRect(g_main, &rc);
@@ -1389,6 +1484,7 @@ static void LayoutMain(void)
     InvalidateRect(g_main, NULL, TRUE);
 }
 
+/* Met à jour la barre d'état, les boutons et le titre de la fenêtre. */
 static void UpdateStatus(void)
 {
     if (!g_status) return;
@@ -1431,6 +1527,7 @@ static void UpdateStatus(void)
     if (g_hud && IsWindowVisible(g_hud)) InvalidateRect(g_hud, NULL, FALSE);
 }
 
+/* Applique « toujours au premier plan » et l'état du bouton. */
 static void ApplyTopmost(void)
 {
     SetWindowPos(g_main, C.topmost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
@@ -1439,6 +1536,7 @@ static void ApplyTopmost(void)
     BarTexts();
 }
 
+/* Bouton / touche A : premier plan ou fenêtre normale. */
 static void SetTopmost(int on)
 {
     C.topmost = !!on;
@@ -1447,6 +1545,7 @@ static void SetTopmost(int on)
     Flash(C.topmost ? TR(L"Toujours au premier plan") : TR(L"Fenêtre normale (arrière-plan possible)"));
 }
 
+/* Polices de la fenêtre principale pour le DPI de l'écran. */
 static void ApplyMainFonts(void)
 {
     if (g_font) DeleteObject(g_font);
@@ -1462,6 +1561,8 @@ static void ApplyMainFonts(void)
 
 static BOOL CALLBACK DisableProc(HWND h, LPARAM l) { (void)l; EnableWindow(h, FALSE); return TRUE; }
 
+/* Événement du lecteur (libVLC ou MPC) pour l'image principale : état, nouvelle tentative en cas de
+   coupure, langue mémorisée. */
 static void OnVlcEvent(int type, int val)
 {
     switch (type) {
@@ -1524,6 +1625,7 @@ static void OpenSettings(int editCh);
 static HFONT g_hudBig, g_hudSmall;
 static UINT  g_hudDpi;
 
+/* Polices du HUD (recréées si le DPI change). */
 static void HudFonts(void)
 {
     if (g_hudBig && g_hudDpi == g_dpi) return;
@@ -1534,6 +1636,7 @@ static void HudFonts(void)
     g_hudDpi = g_dpi;
 }
 
+/* Cache le HUD. */
 static void HideHud(void)
 {
     if (!g_hud) return;
@@ -1555,6 +1658,7 @@ static void HudPlace(void)
     InvalidateRect(g_hud, NULL, FALSE);
 }
 
+/* Montre le HUD pendant la durée réglée. */
 static void ShowHud(void)
 {
     if (!g_hud || g_quitting) return;
@@ -1564,6 +1668,8 @@ static void ShowHud(void)
     SetTimer(g_main, TMR_HUD, (UINT)C.hudSecs * 1000u, NULL);
 }
 
+/* Dessin du HUD : chaîne, programme en cours / suivant (ou position d'un enregistrement), état, volume,
+   témoin REC. */
 static void HudPaint(HDC dc, int W, int H)
 {
     HBRUSH bg = CreateSolidBrush(RGB(16, 17, 22));
@@ -1687,6 +1793,7 @@ static void HudPaint(HDC dc, int W, int H)
     }
 }
 
+/* Fenêtre du HUD : transparente aux clics, dessinée hors écran puis copiée. */
 static LRESULT CALLBACK HudProc(HWND h, UINT msg, WPARAM w, LPARAM l)
 {
     switch (msg) {
@@ -1710,6 +1817,7 @@ static LRESULT CALLBACK HudProc(HWND h, UINT msg, WPARAM w, LPARAM l)
     return DefWindowProcW(h, msg, w, l);
 }
 
+/* Menu du clic droit sur l'image. */
 static void ShowVideoMenu(int x, int y)
 {
     HMENU m = CreatePopupMenu(), a = CreatePopupMenu(), dm = CreatePopupMenu();
@@ -1767,6 +1875,7 @@ static int NearMainEdge(LPARAM l)
     return p.x < r.left + g || p.x >= r.right - g || p.y < r.top + g || p.y >= r.bottom - g;
 }
 
+/* Sous-classe de la liste : en bordure fine, laisse les bords à la fenêtre principale (redimensionnement). */
 static LRESULT CALLBACK ListSubProc(HWND h, UINT msg, WPARAM w, LPARAM l, UINT_PTR id, DWORD_PTR ref)
 {
     (void)id; (void)ref;
@@ -1774,6 +1883,8 @@ static LRESULT CALLBACK ListSubProc(HWND h, UINT msg, WPARAM w, LPARAM l, UINT_P
     return DefSubclassProc(h, msg, w, l);
 }
 
+/* Zone vidéo : message d'attente, clic (son de l'image principale, déplacement en bordure fine), double-
+   clic, menu, molette. */
 static LRESULT CALLBACK HostProc(HWND h, UINT msg, WPARAM w, LPARAM l)
 {
     switch (msg) {
@@ -1821,6 +1932,7 @@ static LRESULT CALLBACK HostProc(HWND h, UINT msg, WPARAM w, LPARAM l)
     return DefWindowProcW(h, msg, w, l);
 }
 
+/* Valide le numéro de chaîne saisi au clavier. */
 static void CommitDigits(void)
 {
     KillTimer(g_main, TMR_DIGITS);
@@ -1832,6 +1944,7 @@ static void CommitDigits(void)
     if (target >= 0) PlayActive(target); else UpdateStatus();
 }
 
+/* Raccourcis clavier de la fenêtre principale ; renvoie 1 si la touche est traitée. */
 static int HandleKey(WPARAM vk)
 {
     if (GetKeyState(VK_CONTROL) < 0 || GetKeyState(VK_MENU) < 0) return 0;
@@ -1873,6 +1986,8 @@ static int HandleKey(WPARAM vk)
     return 0;
 }
 
+/* Procédure de la fenêtre principale : création, mise en page, commandes, minuteurs et messages des
+   threads. */
 static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
 {
     switch (msg) {
@@ -2307,6 +2422,7 @@ static int LayoutSettings(int W, int H, BOOL apply)
     return need + SS(16) + rh + m;     /* hauteur minimale du contenu */
 }
 
+/* Affiche l'onglet pg de la fenêtre Paramètres. */
 static void SettingsPage(int pg)
 {
     if (pg < 0 || pg > 4 || !g_set) return;
@@ -2317,6 +2433,7 @@ static void SettingsPage(int pg)
     InvalidateRect(g_set, NULL, TRUE);
 }
 
+/* Remplit la liste des chaînes de l'onglet Chaînes (Paramètres). */
 static void FillLV(void)
 {
     if (!g_set) return;
@@ -2341,6 +2458,7 @@ static void FillLV(void)
     SetWindowTextW(U.hdr[4], t);
 }
 
+/* Recopie les réglages courants dans les contrôles de la fenêtre Paramètres. */
 static void SettingsSync(void)
 {
     if (!g_set) return;
@@ -2396,6 +2514,7 @@ static void SettingsSync(void)
     g_setInit = 0;
 }
 
+/* Polices de la fenêtre Paramètres pour son DPI. */
 static void ApplySettingsFonts(void)
 {
     if (g_sfont) DeleteObject(g_sfont);
@@ -2409,6 +2528,7 @@ static void ApplySettingsFonts(void)
     ListView_SetColumnWidth(U.lv, 1, SS(56));
 }
 
+/* Crée tous les contrôles de la fenêtre Paramètres (tous onglets). */
 static void CreateSettingsControls(HWND h)
 {
     static const wchar_t *hdrs[5] = { L"Source et enregistrements", L"Lecture", L"Interface", L"Moteur de lecture", L"Chaînes" };
@@ -2525,6 +2645,7 @@ static void CreateSettingsControls(HWND h)
 
 static int LvSel(void) { return ListView_GetNextItem(U.lv, -1, LVNI_SELECTED); }
 
+/* Sélectionne et rend visible une ligne de la liste des chaînes (Paramètres). */
 static void LvSelect(int i)
 {
     ListView_SetItemState(U.lv, -1, 0, LVIS_SELECTED | LVIS_FOCUSED);
@@ -2532,6 +2653,7 @@ static void LvSelect(int i)
     ListView_EnsureVisible(U.lv, i, FALSE);
 }
 
+/* Monte / descend la chaîne sélectionnée (Paramètres). */
 static void MoveChannel(int dir)
 {
     int s = LvSel(), t = s + dir;
@@ -2547,6 +2669,7 @@ static void MoveChannel(int dir)
 
 static void ReplaySoon(void) { if (g_cur >= 0) SetTimer(g_set, TMR_REPLAY, 700, NULL); }
 
+/* Notifications de la fenêtre Paramètres : onglets, cases à cocher, renommage, double-clic. */
 static LRESULT SettingsNotify(NMHDR *nh)
 {
     if (nh->idFrom == IDS_TAB && nh->code == TCN_SELCHANGE) { SettingsPage(TabCtrl_GetCurSel(U.tab)); return 0; }
@@ -2589,6 +2712,7 @@ static LRESULT SettingsNotify(NMHDR *nh)
     return 0;
 }
 
+/* Commandes de la fenêtre Paramètres (chaque réglage est appliqué immédiatement). */
 static void SettingsCommand(HWND h, int id, int code)
 {
     switch (id) {
@@ -2789,6 +2913,7 @@ static void SettingsCommand(HWND h, int id, int code)
     }
 }
 
+/* Procédure de la fenêtre Paramètres. */
 static LRESULT CALLBACK SettingsProc(HWND h, UINT msg, WPARAM w, LPARAM l)
 {
     switch (msg) {
@@ -2849,12 +2974,15 @@ static LRESULT CALLBACK SettingsProc(HWND h, UINT msg, WPARAM w, LPARAM l)
     return DefWindowProcW(h, msg, w, l);
 }
 
+/* Le rectangle est-il visible sur un écran (pour restaurer une position mémorisée) ? */
 static int RectOnScreen(const RECT *r)
 {
     return !IsRectEmpty(r) && r->right - r->left > 200 && r->bottom - r->top > 150
         && MonitorFromRect(r, MONITOR_DEFAULTTONULL) != NULL;
 }
 
+/* Ouvre (ou ramène) la fenêtre Paramètres, ajustée à l'écran ; editCh ≥ 0 : renommer cette chaîne, -2 :
+   tailles. */
 static void OpenSettings(int editCh)
 {
     if (!g_set) {

@@ -31,6 +31,7 @@ static int VerCmp(const wchar_t *a, const wchar_t *b)
     return 0;
 }
 
+/* Thread : lit la dernière release sur GitHub (numéro, page, zip). */
 static DWORD WINAPI UpdThread(LPVOID pv)
 {
     UpdInfo *u = (UpdInfo *)pv;
@@ -55,6 +56,7 @@ static DWORD WINAPI UpdThread(LPVOID pv)
     return 0;
 }
 
+/* Lance la vérification des mises à jour (manual = demandée par l'utilisateur). */
 static void UpdCheck(int manual)
 {
     UpdInfo *u = (UpdInfo *)calloc(1, sizeof *u);
@@ -67,6 +69,7 @@ static void UpdCheck(int manual)
 
 static int UpdNewer(void) { return g_upd.ok && VerCmp(g_upd.tag, APP_VER) > 0; }
 
+/* Ligne « Version installée… » de Paramètres › Interface. */
 static void UpdSettingsInfo(void)
 {
     if (!g_set) return;
@@ -79,6 +82,7 @@ static void UpdSettingsInfo(void)
     SetWindowTextW(U.updInfo, t);
 }
 
+/* Montre / cache le bandeau de nouvelle version (et refait la mise en page). */
 static void BannerShow(int on)
 {
     if (!g_banner) return;
@@ -89,6 +93,7 @@ static void BannerShow(int on)
     if (on) InvalidateRect(g_banner, NULL, TRUE);
 }
 
+/* Résultat de la vérification : bandeau si une version plus récente existe. */
 static void OnUpd(UpdInfo *u)
 {
     int manual = u->manual;
@@ -116,6 +121,7 @@ static void BannerLayout(HWND h)
     x -= S(130); MoveWindow(g_bdl, x, y, S(124), bh, TRUE);
 }
 
+/* Bandeau de nouvelle version : texte, Télécharger, Nouveautés, ✕. */
 static LRESULT CALLBACK BannerProc(HWND h, UINT msg, WPARAM w, LPARAM l)
 {
     switch (msg) {
@@ -152,6 +158,7 @@ static LRESULT CALLBACK BannerProc(HWND h, UINT msg, WPARAM w, LPARAM l)
     return DefWindowProcW(h, msg, w, l);
 }
 
+/* Enregistre la classe du bandeau. */
 static void BannerRegister(HINSTANCE hi)
 {
     WNDCLASSEXW wc; memset(&wc, 0, sizeof wc);
@@ -160,6 +167,7 @@ static void BannerRegister(HINSTANCE hi)
     RegisterClassExW(&wc);
 }
 
+/* Crée le bandeau (caché) dans la fenêtre principale. */
 static void BannerCreate(HWND main)
 {
     g_banner = CreateWindowExW(0, L"HrpBanner", NULL, WS_CHILD | WS_CLIPCHILDREN, 0, 0, 10, 10, main, NULL, g_hi, NULL);

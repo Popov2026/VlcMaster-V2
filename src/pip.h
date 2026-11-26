@@ -12,6 +12,7 @@
 static const wchar_t *PIP_POS_NAMES[4] = { L"En haut à gauche", L"En haut à droite", L"En bas à gauche", L"En bas à droite" };
 static const int PIP_SIZES[5] = { 20, 25, 30, 35, 40 };
 
+/* Sélectionne la chaîne ch dans la liste de la fenêtre principale. */
 static void ListSelect(int ch)
 {
     if (!g_list) return;
@@ -19,6 +20,7 @@ static void ListSelect(int ch)
     SendMessageW(g_list, LB_SETCURSEL, (WPARAM)v, 0);
 }
 
+/* Enfonce / relâche le bouton PIP selon l'état. */
 static void PipSyncButton(void)
 {
     HWND b = g_main ? GetDlgItem(g_main, IDC_PIPBTN) : NULL;
@@ -58,6 +60,7 @@ static void PipPlace(void)
         SetWindowPos(g_hud, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 }
 
+/* Redessine l'encart, la liste et la barre d'état après un changement du PIP. */
 static void PipRefresh(void)
 {
     if (g_pip) InvalidateRect(g_pip, NULL, TRUE);
@@ -66,6 +69,7 @@ static void PipRefresh(void)
     UpdateStatus();
 }
 
+/* Ouvre le PIP (si besoin) sur la chaîne ch. */
 static void PipPlay(int ch)
 {
     if (ch < 0 || ch >= g_nch) return;
@@ -83,6 +87,7 @@ static void PipPlay(int ch)
     PipRefresh();
 }
 
+/* Ferme le PIP et rend le son à l'image principale. */
 static void PipOff(void)
 {
     if (!g_pipOn) { PipSyncButton(); return; }
@@ -107,6 +112,7 @@ static int PipDefaultCh(void)
     return g_vis[(p < 0 ? 0 : p + 1) % g_nvis];
 }
 
+/* Bouton / touche X : ouvre ou ferme le PIP. */
 static void PipToggle(void)
 {
     if (g_pipOn) PipOff();
@@ -161,6 +167,7 @@ static void PlayActive(int ch)
     else PlayChannel(ch);
 }
 
+/* Événement du lecteur du PIP : état, nouvelle tentative en cas d'erreur. */
 static void OnPipEvent(int type, int val)
 {
     if (!g_pipOn) return;
@@ -249,6 +256,7 @@ static LRESULT PipMouse(HWND h, UINT msg, WPARAM w, LPARAM l)
     return -1;
 }
 
+/* Cadre de l'encart PIP (liseré orange quand il a le son). */
 static LRESULT CALLBACK PipProc(HWND h, UINT msg, WPARAM w, LPARAM l)
 {
     LRESULT r = PipMouse(h, msg, w, l);
@@ -264,6 +272,7 @@ static LRESULT CALLBACK PipProc(HWND h, UINT msg, WPARAM w, LPARAM l)
     return DefWindowProcW(h, msg, w, l);
 }
 
+/* Zone vidéo de l'encart PIP (message d'attente, clics). */
 static LRESULT CALLBACK PipVidProc(HWND h, UINT msg, WPARAM w, LPARAM l)
 {
     LRESULT r = PipMouse(h, msg, w, l);
@@ -289,6 +298,7 @@ static LRESULT CALLBACK PipVidProc(HWND h, UINT msg, WPARAM w, LPARAM l)
     return DefWindowProcW(h, msg, w, l);
 }
 
+/* Enregistre les classes de fenêtres du PIP. */
 static void PipRegister(HINSTANCE hi)
 {
     WNDCLASSEXW wc; memset(&wc, 0, sizeof wc);
