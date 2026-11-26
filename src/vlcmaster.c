@@ -72,7 +72,7 @@
 
 #define APP_NAME L"HomeRun Player"
 #ifndef APP_VER                 /* version du player (comparée aux releases GitHub) */
-#define APP_VER  L"3.6.1"
+#define APP_VER  L"3.6.2"
 #endif
 #define INI_NAME L"HomeRunPlayer"
 
@@ -756,6 +756,10 @@ static DWORD WINAPI VlcWorker(LPVOID unused)
     }
 
     p_libvlc_media_player_set_hwnd(g_mp, g_host);
+    /* Sortie audio DirectSound : volume et muet propres à chaque lecteur.  Avec la sortie
+       par défaut (WASAPI), ils s'appliquent à la session audio de tout le programme : le
+       PIP et l'image principale se coupaient ou se rétablissaient ensemble. */
+    p_libvlc_audio_output_set(g_mp, "directsound");
     p_libvlc_video_set_mouse_input(g_mp, 0);   /* clics / touches => notre fenêtre */
     p_libvlc_video_set_key_input(g_mp, 0);
     libvlc_event_manager_t *em = p_libvlc_media_player_event_manager(g_mp);
@@ -763,6 +767,7 @@ static DWORD WINAPI VlcWorker(LPVOID unused)
     for (int i = 0; i < COUNT(evs); i++) p_libvlc_event_attach(em, evs[i], VlcEvent, NULL);
     if (g_pipVid && (g_mp2 = p_libvlc_media_player_new(g_inst))) {      /* lecteur du PIP */
         p_libvlc_media_player_set_hwnd(g_mp2, g_pipVid);
+        p_libvlc_audio_output_set(g_mp2, "directsound");
         p_libvlc_video_set_mouse_input(g_mp2, 0);
         p_libvlc_video_set_key_input(g_mp2, 0);
         libvlc_event_manager_t *em2 = p_libvlc_media_player_event_manager(g_mp2);
@@ -1569,6 +1574,7 @@ static void OnVlcEvent(int type, int val)
     case EV_Opening:   g_playing = 0; g_paused = 0; SetState(TR(L"Ouverture…")); break;
     case EV_Buffering:
         if (!g_playing) { wchar_t t[48]; swprintf(t, 48, TR(L"Mise en mémoire %d %%"), val); SetState(t); }
+        if (!g_playing && g_pipOn) ApplyAudio();   /* PIP ouvert : une seule image a le son, dès le départ */
         break;
     case EV_Playing:
         g_playing = 1; g_paused = 0; g_retries = 0;

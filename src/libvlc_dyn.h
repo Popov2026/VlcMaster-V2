@@ -66,6 +66,7 @@ enum {
  X(int,                     libvlc_audio_set_volume,        (libvlc_media_player_t*, int)) \
  X(void,                    libvlc_audio_set_mute,          (libvlc_media_player_t*, int)) \
  X(int,                     libvlc_audio_set_delay,         (libvlc_media_player_t*, int64_t)) \
+ X(int,                     libvlc_audio_output_set,        (libvlc_media_player_t*, const char*)) \
  X(void,                    libvlc_video_set_mouse_input,   (libvlc_media_player_t*, unsigned)) \
  X(void,                    libvlc_video_set_key_input,     (libvlc_media_player_t*, unsigned)) \
  X(void,                    libvlc_video_set_aspect_ratio,  (libvlc_media_player_t*, const char*)) \

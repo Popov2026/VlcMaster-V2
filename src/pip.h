@@ -175,6 +175,7 @@ static void OnPipEvent(int type, int val)
     case EV_Opening: g_pipPlaying = 0; wcscpy(g_pipState, TR(L"Ouverture…")); break;
     case EV_Buffering:
         if (!g_pipPlaying) swprintf(g_pipState, 96, TR(L"Mise en mémoire %d %%"), val);
+        if (!g_pipPlaying) ApplyAudio();    /* coupe le son du PIP dès que sa sortie audio existe */
         break;
     case EV_Playing:
         g_pipPlaying = 1; g_pipRetries = 0;
