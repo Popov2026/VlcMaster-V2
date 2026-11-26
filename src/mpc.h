@@ -38,12 +38,20 @@ enum { PS_PLAY = 0, PS_PAUSE = 1, PS_STOP = 2 };
 #define CMD_GETVERSION         0xA0003006u
 #define CMD_INCREASEVOLUME     0xA0004003u
 #define CMD_CLOSEAPP           0xA0004006u
+#define CMD_LISTSUBTITLETRACKS 0x50000004u
+#define CMD_LISTAUDIOTRACKS    0x50000005u
+#define CMD_SETAUDIOTRACK      0xA0002004u
+#define CMD_SETSUBTITLETRACK   0xA0002005u
+#define CMD_GETSUBTITLETRACKS  0xA0003000u
+#define CMD_GETAUDIOTRACKS     0xA0003001u
+static void TracksOnMpc(int spu, const wchar_t *s);     /* tracks.h */
 
 static int       g_engine;                 /* moteur effectif (C.engine au démarrage) */
 static HANDLE    g_mpcProc;
 static DWORD     g_mpcPid;
 static HWND      g_mpcWnd;
 static double    g_mpcPos, g_mpcDur;
+static int       g_mpcNewFile;             /* nouvelle chaîne ouverte (tracks.h) */
 static DWORD     g_mpcStart, g_mpcAudioUntil;
 static wchar_t   g_mpcExe[MAX_PATH];
 static int       g_mpcDelay;               /* délai audio déjà transmis (MPC démarre à 0) */
@@ -296,7 +304,7 @@ static void MpcTick(void)
 
 static void MpcOpen(const wchar_t *url)
 {
-    g_mpcPos = 0; g_mpcDur = 0;
+    g_mpcPos = 0; g_mpcDur = 0; g_mpcNewFile = 1;
     MpcSend(CMD_OPENFILE, url);
 }
 
@@ -346,6 +354,8 @@ static void MpcOnCopyData(const COPYDATASTRUCT *cd)
         break; }
     case CMD_CURRENTPOSITION: g_mpcPos = _wtof(s); break;
     case CMD_NOTIFYENDOFSTREAM: OnVlcEvent(EV_EndReached, 0); break;
+    case CMD_LISTAUDIOTRACKS: TracksOnMpc(0, s); break;
+    case CMD_LISTSUBTITLETRACKS: TracksOnMpc(1, s); break;
     case CMD_DISCONNECT: MpcLost(TR(L"s'est fermé")); break;
     }
 }

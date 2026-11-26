@@ -26,6 +26,13 @@ typedef struct vlc_event_s {
 
 typedef void (*vlc_callback_t)(const vlc_event_t *, void *);
 
+/* libvlc_track_description_t (VLC 3.x) : liste des pistes audio / sous-titres */
+typedef struct libvlc_track_description_t {
+    int   i_id;
+    char *psz_name;
+    struct libvlc_track_description_t *p_next;
+} libvlc_track_description_t;
+
 /* libvlc_event_e (VLC 3.x) */
 enum {
     EV_Opening   = 0x102,
@@ -66,7 +73,14 @@ enum {
  X(int,                     libvlc_video_get_size,          (libvlc_media_player_t*, unsigned, unsigned*, unsigned*)) \
  X(int64_t,                 libvlc_media_player_get_time,   (libvlc_media_player_t*)) \
  X(void,                    libvlc_media_player_set_time,   (libvlc_media_player_t*, int64_t)) \
- X(int64_t,                 libvlc_media_player_get_length, (libvlc_media_player_t*))
+ X(int64_t,                 libvlc_media_player_get_length, (libvlc_media_player_t*)) \
+ X(libvlc_track_description_t*, libvlc_audio_get_track_description, (libvlc_media_player_t*)) \
+ X(int,                     libvlc_audio_get_track,         (libvlc_media_player_t*)) \
+ X(int,                     libvlc_audio_set_track,         (libvlc_media_player_t*, int)) \
+ X(libvlc_track_description_t*, libvlc_video_get_spu_description, (libvlc_media_player_t*)) \
+ X(int,                     libvlc_video_get_spu,           (libvlc_media_player_t*)) \
+ X(int,                     libvlc_video_set_spu,           (libvlc_media_player_t*, int)) \
+ X(void,                    libvlc_track_description_list_release, (libvlc_track_description_t*))
 
 #define X(r, n, a) static r (*p_##n) a;
 VLC_FUNCS(X)

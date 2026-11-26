@@ -337,6 +337,26 @@
 { { L"En bas à gauche", L"Bottom left", L"Abajo a la izquierda", L"Unten links", L"In basso a sinistra", L"Em baixo à esquerda" } },
 { { L"En bas à droite", L"Bottom right", L"Abajo a la derecha", L"Unten rechts", L"In basso a destra", L"Em baixo à direita" } },
 
+/* ---- Langues (pistes audio, sous-titres) ---- */
+{ { L"♫  Langue", L"♫  Language", L"♫  Idioma", L"♫  Sprache", L"♫  Lingua", L"♫  Idioma" } },
+{ { L"Langue audio et sous-titres  (V : piste audio suivante, U : sous-titres)", L"Audio language and subtitles  (V: next audio track, U: subtitles)", L"Idioma de audio y subtítulos  (V: pista siguiente, U: subtítulos)", L"Audiosprache und Untertitel  (V: nächste Tonspur, U: Untertitel)", L"Lingua audio e sottotitoli  (V: traccia successiva, U: sottotitoli)", L"Idioma do áudio e legendas  (V: faixa seguinte, U: legendas)" } },
+{ { L"Langue et sous-titres", L"Language and subtitles", L"Idioma y subtítulos", L"Sprache und Untertitel", L"Lingua e sottotitoli", L"Idioma e legendas" } },
+{ { L"Langue audio", L"Audio language", L"Idioma de audio", L"Audiosprache", L"Lingua audio", L"Idioma do áudio" } },
+{ { L"   (aucune piste : lecture arrêtée ?)", L"   (no track: playback stopped?)", L"   (ninguna pista: ¿reproducción detenida?)", L"   (keine Spur: Wiedergabe gestoppt?)", L"   (nessuna traccia: riproduzione ferma?)", L"   (nenhuma faixa: reprodução parada?)" } },
+{ { L"Sous-titres", L"Subtitles", L"Subtítulos", L"Untertitel", L"Sottotitoli", L"Legendas" } },
+{ { L"Désactivés", L"Off", L"Desactivados", L"Aus", L"Disattivati", L"Desativadas" } },
+{ { L"Sous-titres : désactivés", L"Subtitles: off", L"Subtítulos: desactivados", L"Untertitel: aus", L"Sottotitoli: disattivati", L"Legendas: desativadas" } },
+{ { L"Sous-titres : %ls  (%d/%d)", L"Subtitles: %ls  (%d/%d)", L"Subtítulos: %ls  (%d/%d)", L"Untertitel: %ls  (%d/%d)", L"Sottotitoli: %ls  (%d/%d)", L"Legendas: %ls  (%d/%d)" } },
+{ { L"Audio : %ls  (%d/%d)", L"Audio: %ls  (%d/%d)", L"Audio: %ls  (%d/%d)", L"Ton: %ls  (%d/%d)", L"Audio: %ls  (%d/%d)", L"Áudio: %ls  (%d/%d)" } },
+{ { L"Pas de sous-titres sur cette chaîne", L"No subtitles on this channel", L"Sin subtítulos en este canal", L"Keine Untertitel auf diesem Sender", L"Nessun sottotitolo su questo canale", L"Sem legendas neste canal" } },
+{ { L"Une seule piste audio sur cette chaîne", L"Only one audio track on this channel", L"Una sola pista de audio en este canal", L"Nur eine Tonspur auf diesem Sender", L"Una sola traccia audio su questo canale", L"Apenas uma faixa de áudio neste canal" } },
+{ { L"version originale", L"original version", L"versión original", L"Originalfassung", L"versione originale", L"versão original" } },
+{ { L"audiodescription", L"audio description", L"audiodescripción", L"Audiodeskription", L"audiodescrizione", L"audiodescrição" } },
+{ { L"version multilingue", L"multilingual version", L"versión multilingüe", L"mehrsprachige Fassung", L"versione multilingue", L"versão multilingue" } },
+{ { L"non codée", L"uncoded", L"sin código", L"nicht codiert", L"non codificata", L"não codificada" } },
+{ { L"indéterminée", L"undetermined", L"indeterminado", L"unbestimmt", L"indeterminata", L"indeterminada" } },
+{ { L"malentendants", L"hard of hearing", L"personas sordas", L"Hörgeschädigte", L"non udenti", L"pessoas surdas" } },
+
 /* ---- MPC ---- */
 { { L"%ls introuvable.\nInstallez-le ou indiquez son exécutable dans \u2699 Paramètres \u203A Moteur de lecture.", L"%ls not found.\nInstall it or set its executable in \u2699 Settings \u203A Playback engine.", L"%ls no encontrado.\nInstálelo o indique su ejecutable en \u2699 Ajustes \u203A Motor de reproducción.", L"%ls nicht gefunden.\nInstallieren Sie es oder geben Sie die Programmdatei unter \u2699 Einstellungen \u203A Wiedergabe-Engine an.", L"%ls non trovato.\nInstallatelo o indicatene l'eseguibile in \u2699 Impostazioni \u203A Motore di riproduzione.", L"%ls não encontrado.\nInstale-o ou indique o executável em \u2699 Definições \u203A Motor de reprodução." } },
 { { L"Impossible de lancer %ls (erreur %lu).\n%ls", L"Cannot start %ls (error %lu).\n%ls", L"No se puede iniciar %ls (error %lu).\n%ls", L"%ls kann nicht gestartet werden (Fehler %lu).\n%ls", L"Impossibile avviare %ls (errore %lu).\n%ls", L"Não é possível iniciar %ls (erro %lu).\n%ls" } },

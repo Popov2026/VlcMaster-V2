@@ -173,6 +173,7 @@ static void OnPipEvent(int type, int val)
         g_pipPlaying = 1; g_pipRetries = 0;
         wcscpy(g_pipState, TR(L"En lecture"));
         ApplyAudio(); ApplyVideoOpts();
+        if (PipHasSound()) SetTimer(g_main, TMR_TRACKS, 1500, NULL);
         EnumChildWindows(g_pipVid, DisableProc, 0);
         break;
     case EV_Vout:

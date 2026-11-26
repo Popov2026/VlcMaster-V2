@@ -38,18 +38,18 @@
 #include "libvlc_dyn.h"
 
 #define APP_NAME L"HomeRun Player"
-#define APP_VER  L"3.4"
+#define APP_VER  L"3.5"
 #define INI_NAME L"HomeRunPlayer"
 
 /* ------------------------------------------------------------------ */
 /* Identifiants                                                        */
 /* ------------------------------------------------------------------ */
 enum { WM_APP_VLCREADY = WM_APP + 1, WM_APP_VLCEVENT, WM_APP_PLAYLIST, WM_APP_WORKERDONE, WM_APP_GUIDE, WM_APP_REC, WM_APP_PIPEVENT };
-enum { TMR_FS = 1, TMR_DIGITS, TMR_RETRY, TMR_REPLAY, TMR_FORCEQUIT, TMR_FLASH, TMR_SIZE, TMR_HUD, TMR_GUIDE, TMR_MINUTE, TMR_REC, TMR_MPC, TMR_PIPRETRY };
+enum { TMR_FS = 1, TMR_DIGITS, TMR_RETRY, TMR_REPLAY, TMR_FORCEQUIT, TMR_FLASH, TMR_SIZE, TMR_HUD, TMR_GUIDE, TMR_MINUTE, TMR_REC, TMR_MPC, TMR_PIPRETRY, TMR_TRACKS };
 
 enum {
     IDC_HOST = 100, IDC_LIST, IDC_PREV, IDC_NEXT, IDC_PAUSE, IDC_STOP, IDC_VOL,
-    IDC_MUTE, IDC_STATUS, IDC_CHANS, IDC_FULL, IDC_SETTINGS, IDC_SIZEBTN, IDC_TOPBTN, IDC_GUIDEBTN, IDC_RECBTN, IDC_RECLIST, IDC_PIPBTN,
+    IDC_MUTE, IDC_STATUS, IDC_CHANS, IDC_FULL, IDC_SETTINGS, IDC_SIZEBTN, IDC_TOPBTN, IDC_GUIDEBTN, IDC_RECBTN, IDC_RECLIST, IDC_PIPBTN, IDC_LANGBTN,
 
     IDS_URL = 200, IDS_URLBROWSE, IDS_RELOAD, IDS_CACHE, IDS_CACHESPIN, IDS_HW,
     IDS_DEINT, IDS_ASPECT, IDS_DELAY, IDS_DELAYSPIN, IDS_TOPMOST, IDS_RESUME,
@@ -63,7 +63,8 @@ enum {
     IDM_ASPECT0 = 400, IDM_DEINT0 = 450,
     IDM_SIZEDEF = 499, IDM_SIZE0 = 500, IDM_THIN = 600, IDM_MINIMIZE, IDM_QUIT, IDM_GUIDE,
     IDM_RECEND = 650, IDM_RECINF, IDM_RECCH, IDM_RECDUR0 = 660, IDM_RECSTOP0 = 670,
-    IDM_PIPCH = 900, IDM_PIPSWAP, IDM_PIPOFF, IDM_PIPSOUND, IDM_PIPTOGGLE, IDM_PIPPOS0 = 910, IDM_PIPSIZE0 = 920
+    IDM_PIPCH = 900, IDM_PIPSWAP, IDM_PIPOFF, IDM_PIPSOUND, IDM_PIPTOGGLE, IDM_PIPPOS0 = 910, IDM_PIPSIZE0 = 920,
+    IDM_AUD0 = 930, IDM_SPU0 = 970
 };
 
 /* ------------------------------------------------------------------ */
@@ -125,6 +126,7 @@ static struct {
     int engine; wchar_t mpcPath[MAX_PATH];
     int lang;
     int pip, pipCorner, pipSize; unsigned long long pipKey;
+    wchar_t prefAudio[64], prefSpu[64];      /* langue audio / sous-titres mémorisées */
     wchar_t sizes[256];
     unsigned long long lastkey;
     RECT mainrc; int mainmax; RECT setrc;
@@ -327,6 +329,8 @@ static void LoadConfig(void)
     C.engine   = Clamp(IniInt(L"Lecture", L"Moteur", 0), 0, 2);
     C.lang     = IniInt(L"Interface", L"Langue", -1);
     C.pip       = IniInt(L"Interface", L"PIP", 0) != 0;
+    GetPrivateProfileStringW(L"Lecture", L"LangueAudio", L"", C.prefAudio, 64, g_ini);
+    GetPrivateProfileStringW(L"Lecture", L"SousTitres", L"", C.prefSpu, 64, g_ini);
     C.pipCorner = Clamp(IniInt(L"Interface", L"PIPPosition", 3), 0, 3);
     C.pipSize   = Clamp(IniInt(L"Interface", L"PIPTaille", 30), 15, 50);
     { wchar_t pk[32]; GetPrivateProfileStringW(L"General", L"DernierePIP", L"0", pk, 32, g_ini); C.pipKey = wcstoull(pk, NULL, 16); }
@@ -367,6 +371,8 @@ static void SaveConfig(void)
     IniPutInt(L"Lecture", L"Moteur", C.engine);
     IniPutInt(L"Interface", L"Langue", C.lang);
     IniPutInt(L"Interface", L"PIP", C.pip);
+    WritePrivateProfileStringW(L"Lecture", L"LangueAudio", C.prefAudio, g_ini);
+    WritePrivateProfileStringW(L"Lecture", L"SousTitres", C.prefSpu, g_ini);
     IniPutInt(L"Interface", L"PIPPosition", C.pipCorner);
     IniPutInt(L"Interface", L"PIPTaille", C.pipSize);
     { wchar_t pk[32]; swprintf(pk, 32, L"%016llx", C.pipKey); WritePrivateProfileStringW(L"General", L"DernierePIP", pk, g_ini); }
@@ -1210,6 +1216,7 @@ static void BarTexts(void)
     SetBtnText(IDC_SIZEBTN, sz);
     SetBtnText(IDC_TOPBTN, C.topmost ? (k ? L"\u25B2" : TR(L"\u25B2  Premier plan")) : (k ? L"\u25BD" : TR(L"\u25BD  Arrière-plan")));
     SetBtnText(IDC_GUIDEBTN, k ? L"\u2637" : TR(L"\u2637  Guide"));
+    SetBtnText(IDC_LANGBTN, k ? L"\u266B" : TR(L"\u266B  Langue"));
     SetBtnText(IDC_PIPBTN, k ? L"\u25F2" : TR(L"\u25F2  PIP"));
     SetBtnText(IDC_RECLIST, k ? L"\u25A4" : TR(L"\u25A4  Enregistrements"));
     SetBtnText(IDC_CHANS, k ? L"\u2630" : TR(L"\u2630  Chaînes"));
@@ -1300,6 +1307,7 @@ static const BarItem BAR[] = {
     { IDC_SIZEBTN,     L"\u25A3  Taille", L"Taille prédéfinie de l'image  (T = suivante, flèche = choisir)", 108, 1, 1, 78 },
     { IDC_TOPBTN,   L"\u25BD  Arrière-plan", L"Toujours au premier plan / fenêtre normale  (A)", 122, 4, 1, 40 },
     { IDC_GUIDEBTN, L"\u2637  Guide", L"Guide TV  (G)", 90, 3, 1, 40 },
+    { IDC_LANGBTN,  L"\u266B  Langue", L"Langue audio et sous-titres  (V : piste audio suivante, U : sous-titres)", 100, 3, 1, 40 },
     { IDC_PIPBTN,   L"\u25F2  PIP", L"Image dans l'image : seconde chaîne (X) · clic sur une image = son de cette image, double-clic sur l'encart = inverser (W)", 76, 3, 1, 40 },
     { IDC_RECLIST,  L"\u25A4  Enregistrements", L"Liste des enregistrements  (E)", 150, 3, 1, 40 },
     { IDC_CHANS,    L"☰  Chaînes",   L"Afficher / masquer la liste  (L)",      98, 5, 1, 40 },
@@ -1452,6 +1460,7 @@ static void OnVlcEvent(int type, int val)
         EnumChildWindows(g_host, DisableProc, 0);
         SetState(TR(L"En lecture"));
         SetTimer(g_main, TMR_SIZE, 800, NULL);
+        if (!PipHasSound()) SetTimer(g_main, TMR_TRACKS, 1500, NULL);   /* langue mémorisée */
         if (g_rw) RecRowsUpdate();
         break;
     case EV_Vout: {
@@ -1488,6 +1497,7 @@ static void OnVlcEvent(int type, int val)
 #include "guide_ui.h"
 #include "record.h"
 #include "pip.h"
+#include "tracks.h"
 
 static void OpenSettings(int editCh);
 
@@ -1702,6 +1712,7 @@ static void ShowVideoMenu(int x, int y)
     AppendMenuW(m, MF_STRING, IDM_GUIDE, TR(L"Guide TV…\tG"));
     AppendMenuW(m, MF_STRING | (g_cur < 0 ? MF_GRAYED : 0), IDC_RECBTN, RecForCh(g_cur) >= 0 ? TR(L"Arrêter l'enregistrement\tR") : TR(L"Enregistrer cette chaîne\tR"));
     AppendMenuW(m, MF_STRING, IDC_RECLIST, TR(L"Enregistrements…\tE"));
+    { HMENU tm = CreatePopupMenu(); TracksMenuFill(tm); AppendMenuW(m, MF_POPUP, (UINT_PTR)tm, TR(L"Langue et sous-titres")); }
     AppendMenuW(m, MF_STRING | (g_pipOn ? MF_CHECKED : 0) | (g_engine != ENG_VLC ? MF_GRAYED : 0), IDM_PIPTOGGLE, TR(L"Image dans l'image (PIP)\tX"));
     if (g_pipOn) AppendMenuW(m, MF_STRING | (g_fileMode ? MF_GRAYED : 0), IDM_PIPSWAP, TR(L"Inverser avec l'image principale\tW"));
     AppendMenuW(m, MF_STRING | (C.thin ? MF_CHECKED : 0), IDM_THIN, TR(L"Bordure fine\tB"));
@@ -1818,6 +1829,8 @@ static int HandleKey(WPARAM vk)
     case VK_LEFT:  if (g_fileMode && !PipHasSound()) SeekRel(-10000); else Zap(-1); return 1;
     case VK_RIGHT: if (g_fileMode && !PipHasSound()) SeekRel(30000); else Zap(1); return 1;
     case 'X': PipToggle(); return 1;
+    case 'V': TrackCycle(0); return 1;
+    case 'U': TrackCycle(1); return 1;
     case 'W': PipSwap(); return 1;
     case VK_TAB: if (g_pipOn) { PipSetActive(!g_pipActive); return 1; } return 0;
     case VK_PRIOR: Zap(-1); return 1;
@@ -1983,6 +1996,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         if (id >= IDM_SIZE0 && id < IDM_SIZE0 + 16) { ApplySizePreset(id - IDM_SIZE0); return 0; }
         if (RecCommand(id)) return 0;
         if (PipCommand(id)) return 0;
+        if (TracksCommand(id)) return 0;
         if (id >= IDM_DEINT0 && id < IDM_DEINT0 + COUNT(DEINT_OPTS)) {
             C.deint = id - IDM_DEINT0; ApplyVideoOpts(); SettingsSync(); return 0;
         }
@@ -2003,6 +2017,8 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         case IDC_RECBTN: RecToggleCur(); break;
         case IDC_RECLIST: OpenRecordings(); break;
         case IDC_PIPBTN: PipToggle(); break;
+        case IDC_LANGBTN: { RECT r; GetWindowRect(GetDlgItem(h, IDC_LANGBTN), &r);
+                            ShowTracksMenu(r.right, r.top, TPM_RIGHTALIGN | TPM_BOTTOMALIGN); break; }
         case IDC_TOPBTN: SetTopmost(Button_GetCheck(GetDlgItem(h, IDC_TOPBTN)) == BST_CHECKED); break;
         case IDM_MINIMIZE: ShowWindow(h, SW_MINIMIZE); break;
         case IDM_QUIT: PostMessageW(h, WM_CLOSE, 0, 0); break;
@@ -2057,6 +2073,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         case TMR_GUIDE: GuideLoad(); break;
         case TMR_REC: RecTick(); break;
         case TMR_MPC: MpcTick(); break;
+        case TMR_TRACKS: KillTimer(h, TMR_TRACKS); TracksApplyPref(); break;
         case TMR_PIPRETRY: KillTimer(h, TMR_PIPRETRY); if (g_pipOn) PipRequest(0); break;
         case TMR_MINUTE:   /* avancement des programmes */
             InvalidateRect(g_list, NULL, FALSE);
