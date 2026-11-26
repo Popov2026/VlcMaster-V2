@@ -16,6 +16,12 @@ plus besoin de lancer un VLC externe ni d'activer son interface HTTP.
 - **Vidéo intégrée** : libVLC dessine l'image dans la fenêtre (Direct3D 11, décodage matériel).
 - **Liste des chaînes automatique** : lue depuis `lineup.m3u` (noms et numéros du tuner), affichable / masquable.
 - **Zapping instantané** : ← → , molette, saisie du numéro au clavier ; les appuis rapides sont regroupés.
+- **Image dans l'image (PIP)** (bouton ◲ PIP ou touche X) : une seconde chaîne du tuner dans un encart, dans le coin choisi :
+  - **clic sur une image = son de cette image** (liseré orange sur l'encart quand il a le son ; Tab bascule) ;
+  - le zapping, la saisie du numéro et la liste agissent sur l'image qui a le son ; double-clic sur l'encart (ou W) pour échanger les deux chaînes ;
+  - dans la liste, badges « TV » (image principale) et « PIP », ♪ sur celle qui a le son ; clic droit sur une chaîne › *Regarder en PIP* ;
+  - position (4 coins) et taille (15 à 50 % de la largeur) dans Paramètres › Interface ou par clic droit sur l'encart ; repris au démarrage ;
+  - utilise un second tuner ; disponible avec le moteur VLC.
 - **Moteur de lecture au choix** (⚙ Paramètres › Moteur de lecture) : **VLC** (libVLC intégré, par défaut), **MPC-HC** ou **MPC-BE** :
   - MPC est lancé en mode piloté (`/slave`) et son image est incrustée dans la fenêtre, sans ses barres ; ses propres réglages ne sont pas modifiés (rendu vidéo, décodage LAV, madVR… se règlent dans MPC) ;
   - tout le reste est identique : liste, guide, HUD, enregistrement, lecture des enregistrements avec déplacement, bordure fine, tailles ;
@@ -70,6 +76,7 @@ plus besoin de lancer un VLC externe ni d'activer son interface HTTP.
 | L | Afficher / masquer la liste des chaînes |
 | P, F2 | Paramètres (Ctrl+Tab : onglet suivant) |
 | I | Afficher le HUD |
+| X · W · Tab | PIP oui / non · échanger PIP et image principale · donner le son à l'autre image |
 | G | Guide TV (dans le guide : flèches, Entrée = regarder, Début = maintenant, Échap = fermer) |
 | B | Bordure fine / fenêtre normale |
 | T | Taille prédéfinie suivante |

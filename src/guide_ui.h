@@ -303,7 +303,7 @@ static LRESULT CALLBACK GridProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         case VK_PRIOR: g_gtop -= 8; GridScroll(); return 0;
         case VK_NEXT: g_gtop += 8; GridScroll(); return 0;
         case VK_HOME: GridGoNow(); return 0;
-        case VK_RETURN: if (g_selCh >= 0) { PlayChannel(g_selCh); InvalidateRect(h, NULL, FALSE); } return 0;
+        case VK_RETURN: if (g_selCh >= 0) { PlayActive(g_selCh); InvalidateRect(h, NULL, FALSE); } return 0;
         case VK_ESCAPE: DestroyWindow(g_gw); return 0;
         }
         break;
@@ -361,7 +361,7 @@ static LRESULT CALLBACK GuideWinProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         case IDG_BACK: g_gt0 -= 3 * 3600; GridScroll(); break;
         case IDG_NOW: GridGoNow(); if (g_cur >= 0) GridSelectNow(g_cur); break;
         case IDG_FWD: g_gt0 += 3 * 3600; GridScroll(); break;
-        case IDG_WATCH: if (g_selCh >= 0) PlayChannel(g_selCh); InvalidateRect(g_grid, NULL, FALSE); break;
+        case IDG_WATCH: if (g_selCh >= 0) PlayActive(g_selCh); InvalidateRect(g_grid, NULL, FALSE); break;
         case IDG_REFRESH: GuideLoad(); break;
         default: return 0;
         }

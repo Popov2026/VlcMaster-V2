@@ -316,18 +316,18 @@ static void RecStopAll(void)
 /* Bouton ● Enregistrer : démarre (jusqu'à la fin de l'émission) ou arrête la chaîne en cours. */
 static void RecToggleCur(void)
 {
-    int i = RecForCh(g_cur);
+    int i = RecForCh(HudCh());
     if (i >= 0) { RecStop(i); Flash(TR(L"Arrêt de l'enregistrement…")); }
-    else RecStart(g_cur, -1);
+    else RecStart(HudCh(), -1);
 }
 
 static void ShowRecMenu(int x, int y, UINT align)
 {
     HMENU m = CreatePopupMenu();
-    int ri = RecForCh(g_cur);
-    if (g_cur >= 0 && ri < 0) {
+    int ri = RecForCh(HudCh());
+    if (HudCh() >= 0 && ri < 0) {
         wchar_t t[200];
-        const Prog *pr = ProgAt(GuideForCh(g_cur), NowEpoch(), NULL);
+        const Prog *pr = ProgAt(GuideForCh(HudCh()), NowEpoch(), NULL);
         if (pr) {
             wchar_t hm[8]; FmtHM(pr->en + (long long)C.recMargin * 60, hm);
             swprintf(t, 200, TR(L"Enregistrer jusqu'à la fin de l'émission  (%ls)"), hm);
@@ -355,9 +355,9 @@ static void ShowRecMenu(int x, int y, UINT align)
 static int RecCommand(int id)
 {
     static const int mins[4] = { 30, 60, 120, 180 };
-    if (id == IDM_RECEND) { RecStart(g_cur, -1); return 1; }
-    if (id == IDM_RECINF) { RecStart(g_cur, 0); return 1; }
-    if (id >= IDM_RECDUR0 && id < IDM_RECDUR0 + 4) { RecStart(g_cur, NowEpoch() + mins[id - IDM_RECDUR0] * 60LL); return 1; }
+    if (id == IDM_RECEND) { RecStart(HudCh(), -1); return 1; }
+    if (id == IDM_RECINF) { RecStart(HudCh(), 0); return 1; }
+    if (id >= IDM_RECDUR0 && id < IDM_RECDUR0 + 4) { RecStart(HudCh(), NowEpoch() + mins[id - IDM_RECDUR0] * 60LL); return 1; }
     if (id >= IDM_RECSTOP0 && id < IDM_RECSTOP0 + MAXREC) { RecStop(id - IDM_RECSTOP0); return 1; }
     if (id == IDM_RECCH) { RecStart(g_menuCh, -1); return 1; }
     return 0;

@@ -38,18 +38,18 @@
 #include "libvlc_dyn.h"
 
 #define APP_NAME L"HomeRun Player"
-#define APP_VER  L"3.3.1"
+#define APP_VER  L"3.4"
 #define INI_NAME L"HomeRunPlayer"
 
 /* ------------------------------------------------------------------ */
 /* Identifiants                                                        */
 /* ------------------------------------------------------------------ */
-enum { WM_APP_VLCREADY = WM_APP + 1, WM_APP_VLCEVENT, WM_APP_PLAYLIST, WM_APP_WORKERDONE, WM_APP_GUIDE, WM_APP_REC };
-enum { TMR_FS = 1, TMR_DIGITS, TMR_RETRY, TMR_REPLAY, TMR_FORCEQUIT, TMR_FLASH, TMR_SIZE, TMR_HUD, TMR_GUIDE, TMR_MINUTE, TMR_REC, TMR_MPC };
+enum { WM_APP_VLCREADY = WM_APP + 1, WM_APP_VLCEVENT, WM_APP_PLAYLIST, WM_APP_WORKERDONE, WM_APP_GUIDE, WM_APP_REC, WM_APP_PIPEVENT };
+enum { TMR_FS = 1, TMR_DIGITS, TMR_RETRY, TMR_REPLAY, TMR_FORCEQUIT, TMR_FLASH, TMR_SIZE, TMR_HUD, TMR_GUIDE, TMR_MINUTE, TMR_REC, TMR_MPC, TMR_PIPRETRY };
 
 enum {
     IDC_HOST = 100, IDC_LIST, IDC_PREV, IDC_NEXT, IDC_PAUSE, IDC_STOP, IDC_VOL,
-    IDC_MUTE, IDC_STATUS, IDC_CHANS, IDC_FULL, IDC_SETTINGS, IDC_SIZEBTN, IDC_TOPBTN, IDC_GUIDEBTN, IDC_RECBTN, IDC_RECLIST,
+    IDC_MUTE, IDC_STATUS, IDC_CHANS, IDC_FULL, IDC_SETTINGS, IDC_SIZEBTN, IDC_TOPBTN, IDC_GUIDEBTN, IDC_RECBTN, IDC_RECLIST, IDC_PIPBTN,
 
     IDS_URL = 200, IDS_URLBROWSE, IDS_RELOAD, IDS_CACHE, IDS_CACHESPIN, IDS_HW,
     IDS_DEINT, IDS_ASPECT, IDS_DELAY, IDS_DELAYSPIN, IDS_TOPMOST, IDS_RESUME,
@@ -57,12 +57,13 @@ enum {
     IDS_DOWN, IDS_RENAME, IDS_ORIGNAME, IDS_SHOWALL, IDS_CLOSE,
     IDS_THIN, IDS_THINBAR, IDS_SIZES, IDS_HUD, IDS_HUDSPIN, IDS_GUIDE,
     IDS_RECDIR, IDS_RECBROWSE, IDS_RECMARGIN, IDS_RECMARGINSPIN,
-    IDS_ENGINE, IDS_MPCPATH, IDS_MPCBROWSE, IDS_TAB, IDS_LANG,
+    IDS_ENGINE, IDS_MPCPATH, IDS_MPCBROWSE, IDS_TAB, IDS_LANG, IDS_PIPPOS, IDS_PIPSIZE, IDS_PIPSIZESPIN,
 
     IDM_PLAY = 300, IDM_RENAME, IDM_HIDE,
     IDM_ASPECT0 = 400, IDM_DEINT0 = 450,
     IDM_SIZEDEF = 499, IDM_SIZE0 = 500, IDM_THIN = 600, IDM_MINIMIZE, IDM_QUIT, IDM_GUIDE,
-    IDM_RECEND = 650, IDM_RECINF, IDM_RECCH, IDM_RECDUR0 = 660, IDM_RECSTOP0 = 670
+    IDM_RECEND = 650, IDM_RECINF, IDM_RECCH, IDM_RECDUR0 = 660, IDM_RECSTOP0 = 670,
+    IDM_PIPCH = 900, IDM_PIPSWAP, IDM_PIPOFF, IDM_PIPSOUND, IDM_PIPTOGGLE, IDM_PIPPOS0 = 910, IDM_PIPSIZE0 = 920
 };
 
 /* ------------------------------------------------------------------ */
@@ -123,6 +124,7 @@ static struct {
     wchar_t recdir[MAX_PATH]; int recMargin; RECT recrc;
     int engine; wchar_t mpcPath[MAX_PATH];
     int lang;
+    int pip, pipCorner, pipSize; unsigned long long pipKey;
     wchar_t sizes[256];
     unsigned long long lastkey;
     RECT mainrc; int mainmax; RECT setrc;
@@ -165,6 +167,15 @@ static CRITICAL_SECTION       g_cs;
 static HANDLE                 g_wake;
 static struct { int has, stop, quit, caching; char url[1024]; char hw[16]; } g_req;
 
+/* PIP (pip.h) : second lecteur libVLC et son état */
+static libvlc_media_player_t *g_mp2;
+static struct { int has, stop, caching; char url[1024]; char hw[16]; } g_req2;
+static HWND    g_pip, g_pipVid;
+static int     g_pipOn, g_pipCh = -1, g_pipActive, g_pipPlaying, g_pipRetries;
+static wchar_t g_pipState[96], g_pipMsg[200];
+static int PipHasSound(void) { return g_pipOn && g_pipActive && g_pipCh >= 0; }
+static int HudCh(void)       { return PipHasSound() ? g_pipCh : g_cur; }     /* image qui a le son */
+
 /* fenêtre paramètres */
 static struct {
     HWND hdr[5], line[5];
@@ -177,6 +188,7 @@ static struct {
     HWND lblVlc, vlcdir, vlcBr, vlcInfo;
     HWND lblEng, engine, lblMpc, mpcPath, mpcBr;
     HWND tab, lblLang, lang;
+    HWND lblPipPos, pipPos, lblPipSize, pipSize, pipSizeSp;
     HWND lv, up, down, rename, orig, showall, hint, close;
 } U;
 static HFONT g_sfont, g_sfontBold;
@@ -314,6 +326,10 @@ static void LoadConfig(void)
     GetPrivateProfileStringW(L"General", L"CheminMPC", L"", C.mpcPath, MAX_PATH, g_ini);
     C.engine   = Clamp(IniInt(L"Lecture", L"Moteur", 0), 0, 2);
     C.lang     = IniInt(L"Interface", L"Langue", -1);
+    C.pip       = IniInt(L"Interface", L"PIP", 0) != 0;
+    C.pipCorner = Clamp(IniInt(L"Interface", L"PIPPosition", 3), 0, 3);
+    C.pipSize   = Clamp(IniInt(L"Interface", L"PIPTaille", 30), 15, 50);
+    { wchar_t pk[32]; GetPrivateProfileStringW(L"General", L"DernierePIP", L"0", pk, 32, g_ini); C.pipKey = wcstoull(pk, NULL, 16); }
     if (C.lang < 0 || C.lang >= L_COUNT) C.lang = LangFromSystem();
     C.caching  = Clamp(IniInt(L"Lecture", L"Cache", 1000), 0, 20000);
     C.hw       = Clamp(IniInt(L"Lecture", L"Decodage", 0), 0, COUNT(HW_OPTS) - 1);
@@ -350,6 +366,10 @@ static void SaveConfig(void)
     WritePrivateProfileStringW(L"General", L"CheminMPC", C.mpcPath, g_ini);
     IniPutInt(L"Lecture", L"Moteur", C.engine);
     IniPutInt(L"Interface", L"Langue", C.lang);
+    IniPutInt(L"Interface", L"PIP", C.pip);
+    IniPutInt(L"Interface", L"PIPPosition", C.pipCorner);
+    IniPutInt(L"Interface", L"PIPTaille", C.pipSize);
+    { wchar_t pk[32]; swprintf(pk, 32, L"%016llx", C.pipKey); WritePrivateProfileStringW(L"General", L"DernierePIP", pk, g_ini); }
     wchar_t b[32]; swprintf(b, 32, L"%016llx", C.lastkey);
     WritePrivateProfileStringW(L"General", L"Derniere", b, g_ini);
     IniPutInt(L"Lecture", L"Cache", C.caching);
@@ -554,15 +574,15 @@ static DWORD WINAPI PlaylistThread(LPVOID pv)
 
 static void VlcEvent(const vlc_event_t *e, void *ud)
 {
-    static int lastBuf = -1;
-    (void)ud;
+    static int lastBuf[2] = { -1, -1 };
+    int k = ud != NULL;                  /* 0 = image principale, 1 = PIP */
     LPARAM l = 0;
     if (e->type == EV_Buffering) {
         int b = (int)e->u.buffering.new_cache;
-        if (b == lastBuf) return;
-        lastBuf = b; l = b;
-    } else lastBuf = -1;
-    PostMessageW(g_main, WM_APP_VLCEVENT, (WPARAM)e->type, l);
+        if (b == lastBuf[k]) return;
+        lastBuf[k] = b; l = b;
+    } else lastBuf[k] = -1;
+    PostMessageW(g_main, k ? WM_APP_PIPEVENT : WM_APP_VLCEVENT, (WPARAM)e->type, l);
 }
 
 static HMODULE TryVlcDir(const wchar_t *dir, DWORD *err)
@@ -607,6 +627,20 @@ static HMODULE LoadVlc(void)
     return NULL;
 }
 
+static void VlcOpen(libvlc_media_player_t *mp, const char *url, int caching, const char *hw, int pip)
+{
+    libvlc_media_t *m = strstr(url, "://") ? p_libvlc_media_new_location(g_inst, url)
+                                           : p_libvlc_media_new_path(g_inst, url);
+    if (!m) { PostMessageW(g_main, pip ? WM_APP_PIPEVENT : WM_APP_VLCEVENT, EV_Error, 0); return; }
+    char opt[64];
+    snprintf(opt, sizeof opt, ":network-caching=%d", caching); p_libvlc_media_add_option(m, opt);
+    snprintf(opt, sizeof opt, ":live-caching=%d", caching);    p_libvlc_media_add_option(m, opt);
+    snprintf(opt, sizeof opt, ":avcodec-hw=%s", hw);           p_libvlc_media_add_option(m, opt);
+    p_libvlc_media_player_set_media(mp, m);
+    p_libvlc_media_release(m);
+    p_libvlc_media_player_play(mp);
+}
+
 static DWORD WINAPI VlcWorker(LPVOID unused)
 {
     (void)unused;
@@ -648,6 +682,13 @@ static DWORD WINAPI VlcWorker(LPVOID unused)
     libvlc_event_manager_t *em = p_libvlc_media_player_event_manager(g_mp);
     static const int evs[] = { EV_Opening, EV_Buffering, EV_Playing, EV_Paused, EV_Stopped, EV_EndReached, EV_Error, EV_Vout };
     for (int i = 0; i < COUNT(evs); i++) p_libvlc_event_attach(em, evs[i], VlcEvent, NULL);
+    if (g_pipVid && (g_mp2 = p_libvlc_media_player_new(g_inst))) {      /* lecteur du PIP */
+        p_libvlc_media_player_set_hwnd(g_mp2, g_pipVid);
+        p_libvlc_video_set_mouse_input(g_mp2, 0);
+        p_libvlc_video_set_key_input(g_mp2, 0);
+        libvlc_event_manager_t *em2 = p_libvlc_media_player_event_manager(g_mp2);
+        for (int i = 0; i < COUNT(evs); i++) p_libvlc_event_attach(em2, evs[i], VlcEvent, (void *)1);
+    }
     {
         wchar_t v[96]; Utf8ToW(p_libvlc_get_version(), v, 96);
         swprintf(g_vlcInfo, 512, TR(L"libVLC %ls\n%ls"), v, g_vlcDirReq);
@@ -661,21 +702,22 @@ static DWORD WINAPI VlcWorker(LPVOID unused)
         char url[1024], hw[16];
         memcpy(url, g_req.url, sizeof url); memcpy(hw, g_req.hw, sizeof hw);
         g_req.has = 0;
+        int has2 = g_req2.has, stop2 = g_req2.stop, caching2 = g_req2.caching;
+        char url2[1024], hw2[16];
+        memcpy(url2, g_req2.url, sizeof url2); memcpy(hw2, g_req2.hw, sizeof hw2);
+        g_req2.has = 0;
         LeaveCriticalSection(&g_cs);
         if (quit) break;
-        if (!has) continue;
-        if (stop) { p_libvlc_media_player_stop(g_mp); continue; }
-        libvlc_media_t *m = strstr(url, "://") ? p_libvlc_media_new_location(g_inst, url)
-                                               : p_libvlc_media_new_path(g_inst, url);
-        if (!m) { PostMessageW(g_main, WM_APP_VLCEVENT, EV_Error, 0); continue; }
-        char opt[64];
-        snprintf(opt, sizeof opt, ":network-caching=%d", caching); p_libvlc_media_add_option(m, opt);
-        snprintf(opt, sizeof opt, ":live-caching=%d", caching);    p_libvlc_media_add_option(m, opt);
-        snprintf(opt, sizeof opt, ":avcodec-hw=%s", hw);           p_libvlc_media_add_option(m, opt);
-        p_libvlc_media_player_set_media(g_mp, m);
-        p_libvlc_media_release(m);
-        p_libvlc_media_player_play(g_mp);
+        if (has) {
+            if (stop) p_libvlc_media_player_stop(g_mp);
+            else VlcOpen(g_mp, url, caching, hw, 0);
+        }
+        if (has2 && g_mp2) {
+            if (stop2) p_libvlc_media_player_stop(g_mp2);
+            else VlcOpen(g_mp2, url2, caching2, hw2, 1);
+        }
     }
+    if (g_mp2) { p_libvlc_media_player_stop(g_mp2); p_libvlc_media_player_release(g_mp2); g_mp2 = NULL; }
     p_libvlc_media_player_stop(g_mp);
     p_libvlc_media_player_release(g_mp); g_mp = NULL;
     p_libvlc_release(g_inst); g_inst = NULL;
@@ -707,6 +749,9 @@ static int  RecForCh(int ch);
 static void RecRowsUpdate(void);
 static void FmtDur(long long s, wchar_t *o, int cap);
 static HWND g_rw;                               /* fenêtre Enregistrements (record.h) */
+static void PlayActive(int ch);
+static void PipResume(void);
+static void PipOff(void);
 
 static void SetHostMsg(const wchar_t *m)
 {
@@ -754,15 +799,25 @@ static void ApplyVideoOpts(void)
     if (g_vlcState != 1 || g_engine) return;
     p_libvlc_video_set_aspect_ratio(g_mp, ASPECT_OPTS[C.aspect].val);
     p_libvlc_video_set_deinterlace(g_mp, DEINT_OPTS[C.deint].val);
+    if (g_mp2) {
+        p_libvlc_video_set_aspect_ratio(g_mp2, ASPECT_OPTS[C.aspect].val);
+        p_libvlc_video_set_deinterlace(g_mp2, DEINT_OPTS[C.deint].val);
+    }
 }
 
 static void ApplyAudio(void)
 {
     if (g_vlcState == 1 && g_engine) MpcAudio();
     else if (g_vlcState == 1) {
+        int pipSnd = PipHasSound() && g_mp2;     /* une seule image a le son */
         p_libvlc_audio_set_volume(g_mp, C.volume);
-        p_libvlc_audio_set_mute(g_mp, C.muted);
+        p_libvlc_audio_set_mute(g_mp, C.muted || pipSnd);
         p_libvlc_audio_set_delay(g_mp, (int64_t)C.delay * 1000);
+        if (g_mp2) {
+            p_libvlc_audio_set_volume(g_mp2, C.volume);
+            p_libvlc_audio_set_mute(g_mp2, C.muted || !pipSnd);
+            p_libvlc_audio_set_delay(g_mp2, (int64_t)C.delay * 1000);
+        }
     }
     SendMessageW(g_vol, TBM_SETPOS, TRUE, C.volume);
     BarTexts();
@@ -805,7 +860,7 @@ static void PlayChannel(int i)
     KillTimer(g_main, TMR_RETRY);
     C.lastkey = g_ch[i].key;
     for (int v = 0; v < g_nvis; v++)
-        if (g_vis[v] == i) { SendMessageW(g_list, LB_SETCURSEL, (WPARAM)v, 0); break; }
+        if (g_vis[v] == (PipHasSound() ? g_pipCh : i)) { SendMessageW(g_list, LB_SETCURSEL, (WPARAM)v, 0); break; }
     wchar_t m[256]; swprintf(m, 256, TR(L"Ouverture de « %ls »…"), g_ch[i].name);
     SetHostMsg(g_vlcState == -1 ? g_vlcInfo : m);
     g_size[0] = 0;
@@ -823,9 +878,9 @@ static int VisPos(int ch)
 static void Zap(int step)
 {
     if (!g_nvis) return;
-    int p = VisPos(g_cur);
+    int p = VisPos(HudCh());            /* l'image qui a le son */
     p = (p < 0) ? (step > 0 ? 0 : g_nvis - 1) : ((p + step) % g_nvis + g_nvis) % g_nvis;
-    PlayChannel(g_vis[p]);
+    PlayActive(g_vis[p]);
 }
 
 /* ------------------------------------------------------------------ */
@@ -878,6 +933,28 @@ static void DrawChannelItem(const DRAWITEMSTRUCT *d)
         Ellipse(dc, cx - dd / 2, cy - dd / 2, cx + dd / 2 + 1, cy + dd / 2 + 1);
         SelectObject(dc, op); SelectObject(dc, ob); DeleteObject(rb);
         r2.right -= dd + S(8);
+    }
+    if (g_pipOn) {   /* PIP actif : badges « TV » (image principale) et « PIP », ♪ = a le son */
+        int chn = g_vis[d->itemID];
+        const wchar_t *bt = NULL; COLORREF bc = 0;
+        if (chn == g_pipCh) { bt = L"PIP"; bc = RGB(235, 130, 20); }
+        else if (chn == g_cur && !g_fileMode) { bt = TR(L"TV"); bc = RGB(0, 110, 205); }
+        if (bt) {
+            HGDIOBJ of2 = SelectObject(dc, g_fontSmall);
+            wchar_t lab[24]; swprintf(lab, 24, L"%ls%ls", chn == HudCh() ? L"\u266A " : L"", bt);
+            SIZE ts; GetTextExtentPoint32W(dc, lab, (int)wcslen(lab), &ts);
+            int cy = (r2.top + r2.bottom) / 2;
+            RECT bx = { r2.right - ts.cx - S(12), cy - S(9), r2.right, cy + S(9) };
+            int inv = sel && chn != g_pipCh;          /* badge bleu sur fond bleu : inversé */
+            HBRUSH bb = CreateSolidBrush(inv ? RGB(255, 255, 255) : bc); HGDIOBJ ob = SelectObject(dc, bb);
+            HGDIOBJ op = SelectObject(dc, GetStockObject(sel ? WHITE_PEN : NULL_PEN));
+            RoundRect(dc, bx.left, bx.top, bx.right, bx.bottom, S(8), S(8));
+            SelectObject(dc, op); SelectObject(dc, ob); DeleteObject(bb);
+            SetTextColor(dc, inv ? bc : RGB(255, 255, 255));
+            DrawTextW(dc, lab, -1, &bx, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+            SelectObject(dc, of2);
+            r2.right = bx.left - S(6);
+        }
     }
     SetTextColor(dc, sel ? RGB(255, 255, 255) : GetSysColor(COLOR_WINDOWTEXT));
     DrawTextW(dc, name, -1, &r2, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
@@ -949,7 +1026,8 @@ static void OnPlaylist(WPARAM gen, PlResult *r)
 {
     if ((LONG)gen != g_plGen) { free(r->ch); free(r); return; }
     unsigned long long curKey = (g_cur >= 0 && g_cur < g_nch) ? g_ch[g_cur].key : 0;
-    free(g_ch); g_ch = r->ch; g_nch = r->n; g_cur = -1;
+    unsigned long long pipKey = (g_pipCh >= 0 && g_pipCh < g_nch) ? g_ch[g_pipCh].key : 0;
+    free(g_ch); g_ch = r->ch; g_nch = r->n; g_cur = -1; g_pipCh = -1;
 
     for (int i = 0; i < g_nch; i++) {
         Channel *c = &g_ch[i];
@@ -964,6 +1042,8 @@ static void OnPlaylist(WPARAM gen, PlResult *r)
     RebuildVisible();
 
     if (curKey) for (int i = 0; i < g_nch; i++) if (g_ch[i].key == curKey) { g_cur = i; break; }
+    if (pipKey) for (int i = 0; i < g_nch; i++) if (g_ch[i].key == pipKey) { g_pipCh = i; break; }
+    if (g_pipOn && g_pipCh < 0) PipOff();
     FillMainList();
     if (g_set) FillLV();
 
@@ -982,6 +1062,7 @@ static void OnPlaylist(WPARAM gen, PlResult *r)
             g_cur = pick; FillMainList();
             SetHostMsg(TR(L"Choisissez une chaîne dans la liste\n(ou ← → pour zapper)."));
         }
+        if (g_vlcState == 1) PipResume();
     }
     free(r);
 }
@@ -1129,6 +1210,7 @@ static void BarTexts(void)
     SetBtnText(IDC_SIZEBTN, sz);
     SetBtnText(IDC_TOPBTN, C.topmost ? (k ? L"\u25B2" : TR(L"\u25B2  Premier plan")) : (k ? L"\u25BD" : TR(L"\u25BD  Arrière-plan")));
     SetBtnText(IDC_GUIDEBTN, k ? L"\u2637" : TR(L"\u2637  Guide"));
+    SetBtnText(IDC_PIPBTN, k ? L"\u25F2" : TR(L"\u25F2  PIP"));
     SetBtnText(IDC_RECLIST, k ? L"\u25A4" : TR(L"\u25A4  Enregistrements"));
     SetBtnText(IDC_CHANS, k ? L"\u2630" : TR(L"\u2630  Chaînes"));
 }
@@ -1218,6 +1300,7 @@ static const BarItem BAR[] = {
     { IDC_SIZEBTN,     L"\u25A3  Taille", L"Taille prédéfinie de l'image  (T = suivante, flèche = choisir)", 108, 1, 1, 78 },
     { IDC_TOPBTN,   L"\u25BD  Arrière-plan", L"Toujours au premier plan / fenêtre normale  (A)", 122, 4, 1, 40 },
     { IDC_GUIDEBTN, L"\u2637  Guide", L"Guide TV  (G)", 90, 3, 1, 40 },
+    { IDC_PIPBTN,   L"\u25F2  PIP", L"Image dans l'image : seconde chaîne (X) · clic sur une image = son de cette image, double-clic sur l'encart = inverser (W)", 76, 3, 1, 40 },
     { IDC_RECLIST,  L"\u25A4  Enregistrements", L"Liste des enregistrements  (E)", 150, 3, 1, 40 },
     { IDC_CHANS,    L"☰  Chaînes",   L"Afficher / masquer la liste  (L)",      98, 5, 1, 40 },
 };
@@ -1310,6 +1393,10 @@ static void UpdateStatus(void)
                  pr && pr->title ? L"   ·   " : L"", pr && pr->title ? pr->title : L"");
     }
     else swprintf(t, 512, L"%ls%ls", rec, g_state);
+    if (g_pipOn && g_pipCh >= 0 && g_pipCh < g_nch && !g_digits[0]) {
+        size_t n = wcslen(t);
+        swprintf(t + n, 512 - n, TR(L"   ·   \u25F2 PIP : %ls%ls"), g_ch[g_pipCh].name, PipHasSound() ? L"  \u266A" : L"");
+    }
     SetWindowTextW(g_status, t);
     BarTexts();
 
@@ -1400,6 +1487,7 @@ static void OnVlcEvent(int type, int val)
 
 #include "guide_ui.h"
 #include "record.h"
+#include "pip.h"
 
 static void OpenSettings(int editCh);
 
@@ -1432,7 +1520,7 @@ static void HudPlace(void)
     if (!g_hud) return;
     if (!IsWindowVisible(g_main) || IsIconic(g_main) || !IsWindowVisible(g_host)) { ShowWindow(g_hud, SW_HIDE); return; }
     RECT r; GetWindowRect(g_host, &r);
-    int m = S(16), w = S(480), hh = (g_fileMode || GuideForCh(g_cur)) ? S(158) : S(108);
+    int m = S(16), w = S(480), hh = ((g_fileMode && !PipHasSound()) || GuideForCh(HudCh())) ? S(158) : S(108);
     if (w > r.right - r.left - 2 * m) w = r.right - r.left - 2 * m;
     if (w < S(180) || hh > r.bottom - r.top - 2 * m) { ShowWindow(g_hud, SW_HIDE); return; }
     SetWindowRgn(g_hud, CreateRoundRectRgn(0, 0, w + 1, hh + 1, S(18), S(18)), FALSE);
@@ -1453,7 +1541,7 @@ static void HudPaint(HDC dc, int W, int H)
 {
     HBRUSH bg = CreateSolidBrush(RGB(16, 17, 22));
     RECT rc = { 0, 0, W, H }; FillRect(dc, &rc, bg); DeleteObject(bg);
-    HBRUSH ac = CreateSolidBrush(RGB(0, 120, 215));
+    HBRUSH ac = CreateSolidBrush(PipHasSound() ? RGB(255, 150, 30) : RGB(0, 120, 215));
     RECT a = { 0, 0, S(6), H }; FillRect(dc, &a, ac); DeleteObject(ac);
     SetBkMode(dc, TRANSPARENT);
     int x = S(22), right = W - S(18), y = S(10);
@@ -1461,10 +1549,11 @@ static void HudPaint(HDC dc, int W, int H)
     /* Ligne 1 : numéro + nom de la chaîne, heure à droite */
     wchar_t num[16] = L"", clk[8];
     const wchar_t *name = TR(L"Aucune chaîne");
-    if (g_fileMode) { wcscpy(num, L"\u25B6"); name = g_fileTitle; }
-    else if (g_cur >= 0 && g_cur < g_nch) {
-        const Channel *c = &g_ch[g_cur];
-        int v = VisPos(g_cur);
+    int hc = HudCh();
+    if (g_fileMode && !PipHasSound()) { wcscpy(num, L"\u25B6"); name = g_fileTitle; }
+    else if (hc >= 0 && hc < g_nch) {
+        const Channel *c = &g_ch[hc];
+        int v = VisPos(hc);
         if (c->num[0]) wcscpy(num, c->num); else swprintf(num, 16, L"%d", v + 1);
         name = c->name;
         size_t n = wcslen(num);
@@ -1498,8 +1587,8 @@ static void HudPaint(HDC dc, int W, int H)
     /* Guide : programme en cours (avec avancement) et suivant */
     y += S(38);
     {
-        const Prog *nx = NULL, *pr = ProgAt(GuideForCh(g_cur), NowEpoch(), &nx);
-        if (g_fileMode) {   /* enregistrement : position */
+        const Prog *nx = NULL, *pr = ProgAt(GuideForCh(hc), NowEpoch(), &nx);
+        if (g_fileMode && !PipHasSound()) {   /* enregistrement : position */
             long long len = EngLength();
             long long tt = EngTime();
             wchar_t a[24], b[24], l1[80];
@@ -1516,7 +1605,7 @@ static void HudPaint(HDC dc, int W, int H)
             RECT g2 = { x, y + S(32), right, y + S(48) };
             DrawTextW(dc, TR(L"\u2190 / \u2192 : reculer 10 s / avancer 30 s"), -1, &g2, DT_LEFT | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
             y += S(50);
-        } else if (GuideForCh(g_cur)) {
+        } else if (GuideForCh(hc)) {
             wchar_t a[8], b[8], l1[200], l2b[200];
             if (pr) { FmtHM(pr->st, a); FmtHM(pr->en, b); swprintf(l1, 200, L"%ls – %ls   %ls", a, b, pr->title ? pr->title : L""); }
             else wcscpy(l1, TR(L"Programme inconnu"));
@@ -1542,6 +1631,7 @@ static void HudPaint(HDC dc, int W, int H)
     /* Ligne : message éphémère, sinon état · résolution */
     wchar_t l2[160];
     if (GetTickCount() < g_flashUntil) wcsncpy(l2, g_flash, 159), l2[159] = 0;
+    else if (PipHasSound()) swprintf(l2, 160, L"\u25F2 PIP   \u266A   ·   %ls", g_pipState);
     else swprintf(l2, 160, L"%ls%ls%ls", g_state, g_size[0] ? L"   ·   " : L"", g_size);
     SelectObject(dc, g_hudSmall);
     SetTextColor(dc, RGB(190, 190, 200));
@@ -1612,6 +1702,8 @@ static void ShowVideoMenu(int x, int y)
     AppendMenuW(m, MF_STRING, IDM_GUIDE, TR(L"Guide TV…\tG"));
     AppendMenuW(m, MF_STRING | (g_cur < 0 ? MF_GRAYED : 0), IDC_RECBTN, RecForCh(g_cur) >= 0 ? TR(L"Arrêter l'enregistrement\tR") : TR(L"Enregistrer cette chaîne\tR"));
     AppendMenuW(m, MF_STRING, IDC_RECLIST, TR(L"Enregistrements…\tE"));
+    AppendMenuW(m, MF_STRING | (g_pipOn ? MF_CHECKED : 0) | (g_engine != ENG_VLC ? MF_GRAYED : 0), IDM_PIPTOGGLE, TR(L"Image dans l'image (PIP)\tX"));
+    if (g_pipOn) AppendMenuW(m, MF_STRING | (g_fileMode ? MF_GRAYED : 0), IDM_PIPSWAP, TR(L"Inverser avec l'image principale\tW"));
     AppendMenuW(m, MF_STRING | (C.thin ? MF_CHECKED : 0), IDM_THIN, TR(L"Bordure fine\tB"));
     {
         HMENU sz = CreatePopupMenu();
@@ -1678,6 +1770,7 @@ static LRESULT CALLBACK HostProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         break;
     case WM_LBUTTONDOWN:
         SetFocus(g_main);
+        if (g_pipOn) PipSetActive(0);              /* clic sur l'image principale : son principal */
         if (ThinFrame()) { g_dragPt.x = GET_X_LPARAM(l); g_dragPt.y = GET_Y_LPARAM(l); g_dragArm = 1; SetCapture(h); }
         return 0;
     case WM_MOUSEMOVE:
@@ -1695,7 +1788,7 @@ static LRESULT CALLBACK HostProc(HWND h, UINT msg, WPARAM w, LPARAM l)
     case WM_LBUTTONDBLCLK: SetFullscreen(!g_full); return 0;
     case WM_RBUTTONUP: { POINT p = { GET_X_LPARAM(l), GET_Y_LPARAM(l) }; ClientToScreen(h, &p); ShowVideoMenu(p.x, p.y); return 0; }
     case WM_MOUSEWHEEL: SetVolume(C.volume + (GET_WHEEL_DELTA_WPARAM(w) > 0 ? 5 : -5)); return 0;
-    case WM_SIZE: InvalidateRect(h, NULL, FALSE); if (g_mpcWnd) MpcFit(); return 0;
+    case WM_SIZE: InvalidateRect(h, NULL, FALSE); if (g_mpcWnd) MpcFit(); if (g_pipOn) PipPlace(); return 0;
     }
     return DefWindowProcW(h, msg, w, l);
 }
@@ -1708,7 +1801,7 @@ static void CommitDigits(void)
     for (int v = 0; v < g_nvis; v++) if (!wcscmp(g_ch[g_vis[v]].num, g_digits)) { target = g_vis[v]; break; }
     if (target < 0) { int n = _wtoi(g_digits); if (n >= 1 && n <= g_nvis) target = g_vis[n - 1]; }
     g_digits[0] = 0;
-    if (target >= 0) PlayChannel(target); else UpdateStatus();
+    if (target >= 0) PlayActive(target); else UpdateStatus();
 }
 
 static int HandleKey(WPARAM vk)
@@ -1722,8 +1815,11 @@ static int HandleKey(WPARAM vk)
         return 1;
     }
     switch (vk) {
-    case VK_LEFT:  if (g_fileMode) SeekRel(-10000); else Zap(-1); return 1;
-    case VK_RIGHT: if (g_fileMode) SeekRel(30000); else Zap(1); return 1;
+    case VK_LEFT:  if (g_fileMode && !PipHasSound()) SeekRel(-10000); else Zap(-1); return 1;
+    case VK_RIGHT: if (g_fileMode && !PipHasSound()) SeekRel(30000); else Zap(1); return 1;
+    case 'X': PipToggle(); return 1;
+    case 'W': PipSwap(); return 1;
+    case VK_TAB: if (g_pipOn) { PipSetActive(!g_pipActive); return 1; } return 0;
     case VK_PRIOR: Zap(-1); return 1;
     case VK_NEXT:  Zap(1);  return 1;
     case 'R': RecToggleCur(); return 1;
@@ -1769,7 +1865,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
             } else if (BAR[i].id == IDC_STATUS) {
                 c = g_status = Mk(h, WC_STATICW, L"", SS_LEFTNOWORDWRAP | SS_CENTERIMAGE | SS_ENDELLIPSIS | SS_NOPREFIX, 0, IDC_STATUS);
             } else {
-                c = Mk(h, WC_BUTTONW, TR(BAR[i].txt), ((BAR[i].id == IDC_SIZEBTN || BAR[i].id == IDC_RECBTN) ? BS_SPLITBUTTON : BAR[i].id == IDC_TOPBTN ? (BS_AUTOCHECKBOX | BS_PUSHLIKE) : BS_PUSHBUTTON) | WS_TABSTOP, 0, BAR[i].id);
+                c = Mk(h, WC_BUTTONW, TR(BAR[i].txt), ((BAR[i].id == IDC_SIZEBTN || BAR[i].id == IDC_RECBTN) ? BS_SPLITBUTTON : (BAR[i].id == IDC_TOPBTN || BAR[i].id == IDC_PIPBTN) ? (BS_AUTOCHECKBOX | BS_PUSHLIKE) : BS_PUSHBUTTON) | WS_TABSTOP, 0, BAR[i].id);
             }
             if (BAR[i].tip) {
                 TTTOOLINFOW ti; memset(&ti, 0, sizeof ti);
@@ -1785,10 +1881,12 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
 
     case WM_SIZE:
         if (w != SIZE_MINIMIZED) LayoutMain();
+        PipPlace();
         if (g_hud && IsWindowVisible(g_hud)) HudPlace();
         if (w == SIZE_MINIMIZED) HideHud();
         return 0;
     case WM_MOVE:
+        if (g_pipOn) PipPlace();
         if (g_hud && IsWindowVisible(g_hud)) HudPlace();
         return 0;
 
@@ -1875,7 +1973,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         if (id == IDC_LIST) {
             if (HIWORD(w) == LBN_SELCHANGE) {
                 int s = (int)SendMessageW(g_list, LB_GETCURSEL, 0, 0);
-                if (s >= 0 && s < g_nvis && (g_vis[s] != g_cur || g_fileMode)) PlayChannel(g_vis[s]);
+                if (s >= 0 && s < g_nvis && (g_vis[s] != HudCh() || (g_fileMode && !PipHasSound()))) PlayActive(g_vis[s]);
             }
             return 0;
         }
@@ -1884,6 +1982,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         }
         if (id >= IDM_SIZE0 && id < IDM_SIZE0 + 16) { ApplySizePreset(id - IDM_SIZE0); return 0; }
         if (RecCommand(id)) return 0;
+        if (PipCommand(id)) return 0;
         if (id >= IDM_DEINT0 && id < IDM_DEINT0 + COUNT(DEINT_OPTS)) {
             C.deint = id - IDM_DEINT0; ApplyVideoOpts(); SettingsSync(); return 0;
         }
@@ -1903,6 +2002,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         case IDC_GUIDEBTN: case IDM_GUIDE: OpenGuide(); break;
         case IDC_RECBTN: RecToggleCur(); break;
         case IDC_RECLIST: OpenRecordings(); break;
+        case IDC_PIPBTN: PipToggle(); break;
         case IDC_TOPBTN: SetTopmost(Button_GetCheck(GetDlgItem(h, IDC_TOPBTN)) == BST_CHECKED); break;
         case IDM_MINIMIZE: ShowWindow(h, SW_MINIMIZE); break;
         case IDM_QUIT: PostMessageW(h, WM_CLOSE, 0, 0); break;
@@ -1931,6 +2031,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
             HMENU m = CreatePopupMenu();
             AppendMenuW(m, MF_STRING | MF_DEFAULT, IDM_PLAY, TR(L"Regarder"));
             AppendMenuW(m, MF_STRING | (RecForCh(g_menuCh) >= 0 ? MF_GRAYED : 0), IDM_RECCH, TR(L"\u25CF  Enregistrer (jusqu'à la fin de l'émission)"));
+            AppendMenuW(m, MF_STRING | (g_engine != ENG_VLC ? MF_GRAYED : 0), IDM_PIPCH, TR(L"\u25F2  Regarder en PIP"));
             AppendMenuW(m, MF_STRING, IDM_RENAME, TR(L"Renommer…"));
             AppendMenuW(m, MF_STRING, IDM_HIDE, TR(L"Masquer de la liste"));
             TrackPopupMenu(m, TPM_RIGHTBUTTON, p.x, p.y, 0, h, NULL);
@@ -1956,6 +2057,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         case TMR_GUIDE: GuideLoad(); break;
         case TMR_REC: RecTick(); break;
         case TMR_MPC: MpcTick(); break;
+        case TMR_PIPRETRY: KillTimer(h, TMR_PIPRETRY); if (g_pipOn) PipRequest(0); break;
         case TMR_MINUTE:   /* avancement des programmes */
             InvalidateRect(g_list, NULL, FALSE);
             if (g_grid) InvalidateRect(g_grid, NULL, FALSE);
@@ -1981,6 +2083,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
             if (g_quitting) break;
             if (g_cur >= 0) PlayChannel(g_cur);
             else if (!g_nch) SetHostMsg(g_hostMsg);
+            PipResume();
         } else {
             g_vlcState = -1; g_workerAlive = 0;
             if (g_quitting) { DestroyWindow(h); return 0; }
@@ -1993,6 +2096,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
     case WM_APP_VLCEVENT: OnVlcEvent((int)w, (int)l); return 0;
     case WM_APP_GUIDE: OnGuide(w, (GuideResult *)l); return 0;
     case WM_APP_REC: RecFinished((int)w); return 0;
+    case WM_APP_PIPEVENT: OnPipEvent((int)w, (int)l); return 0;
     case WM_COPYDATA:
         if (g_engine && l) { MpcOnCopyData((const COPYDATASTRUCT *)l); return TRUE; }
         break;
@@ -2016,6 +2120,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         if (g_set) DestroyWindow(g_set);
         if (g_gw) DestroyWindow(g_gw);
         if (g_rw) DestroyWindow(g_rw);
+        if (g_pip) ShowWindow(g_pip, SW_HIDE);
         SaveConfig();
         g_quitting = 1;
         RecStopAll();
@@ -2102,7 +2207,10 @@ static int LayoutSettings(int W, int H, BOOL apply)
     P(U.lblSizes, x, y + (rh - lh) / 2, labw + SS(110), lh);
     P(U.sizes, x + labw + SS(110) + g, y, lw - labw - SS(110) - g, rh); y += rh + sp;
     P(U.lblHud, x, y + (rh - lh) / 2, labw + SS(110), lh);
-    P(U.hud, x + labw + SS(110) + g, y, SS(90), rh); y += rh;
+    P(U.hud, x + labw + SS(110) + g, y, SS(90), rh); y += rh + SS(10);
+    ROW(U.lblPipPos, U.pipPos, SS(220), 1);
+    P(U.lblPipSize, x, y + (rh - lh) / 2, labw + SS(110), lh);
+    P(U.pipSize, x + labw + SS(110) + g, y, SS(90), rh); y += rh;
 
     PAGE(3);                                          /* Moteur de lecture */
     HDR(3);
@@ -2136,9 +2244,9 @@ static int LayoutSettings(int W, int H, BOOL apply)
         d = DeferWindowPos(d, U.close, NULL, W - m - SS(120), closeY, SS(120), rh, SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
         d = DeferWindowPos(d, U.hint, NULL, m, closeY + (rh - lh) / 2, W - 2 * m - SS(130), lh, SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
         EndDeferWindowPos(d);
-        HWND spins[4][2] = { { U.cacheSp, U.cache }, { U.delaySp, U.delay }, { U.hudSp, U.hud }, { U.marginSp, U.margin } };
-        int spg[4] = { 1, 1, 2, 0 };
-        for (int i = 0; i < 4; i++) {
+        HWND spins[5][2] = { { U.cacheSp, U.cache }, { U.delaySp, U.delay }, { U.hudSp, U.hud }, { U.marginSp, U.margin }, { U.pipSizeSp, U.pipSize } };
+        int spg[5] = { 1, 1, 2, 0, 2 };
+        for (int i = 0; i < 5; i++) {
             SendMessageW(spins[i][0], UDM_SETBUDDY, (WPARAM)spins[i][1], 0);
             ShowWindow(spins[i][0], spg[i] == g_setPage ? SW_SHOWNA : SW_HIDE);
         }
@@ -2216,6 +2324,8 @@ static void SettingsSync(void)
     SetWindowTextW(U.vlcInfo, g_vlcInfo);
     SendMessageW(U.engine, CB_SETCURSEL, (WPARAM)C.engine, 0);
     SendMessageW(U.lang, CB_SETCURSEL, (WPARAM)C.lang, 0);
+    SendMessageW(U.pipPos, CB_SETCURSEL, (WPARAM)C.pipCorner, 0);
+    SendMessageW(U.pipSizeSp, UDM_SETPOS32, 0, C.pipSize);
     GetWindowTextW(U.mpcPath, cur, MAX_PATH);
     if (wcscmp(cur, C.mpcPath)) SetWindowTextW(U.mpcPath, C.mpcPath);
     {
@@ -2319,6 +2429,14 @@ static void CreateSettingsControls(HWND h)
     SendMessageW(U.hudSp, UDM_SETBUDDY, (WPARAM)U.hud, 0);
     SendMessageW(U.hudSp, UDM_SETRANGE32, 0, 60);
 
+    U.lblPipPos  = Mk(h, WC_STATICW, TR(L"Position du PIP"), SS_LEFT, 0, -1);
+    U.pipPos     = Mk(h, WC_COMBOBOXW, NULL, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 0, IDS_PIPPOS);
+    for (int i = 0; i < 4; i++) SendMessageW(U.pipPos, CB_ADDSTRING, 0, (LPARAM)TR(PIP_POS_NAMES[i]));
+    U.lblPipSize = Mk(h, WC_STATICW, TR(L"Taille du PIP (% de la largeur de l'image) :"), SS_LEFT | SS_NOPREFIX | SS_ENDELLIPSIS, 0, -1);
+    U.pipSize    = Mk(h, WC_EDITW, L"", ES_NUMBER | ES_AUTOHSCROLL | WS_TABSTOP, WS_EX_CLIENTEDGE, IDS_PIPSIZE);
+    U.pipSizeSp  = Mk(h, UPDOWN_CLASSW, NULL, UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_NOTHOUSANDS, 0, IDS_PIPSIZESPIN);
+    SendMessageW(U.pipSizeSp, UDM_SETBUDDY, (WPARAM)U.pipSize, 0);
+    SendMessageW(U.pipSizeSp, UDM_SETRANGE32, 15, 50);
     U.lblVlc  = Mk(h, WC_STATICW, TR(L"Dossier de VLC 64 bits (vide = détection automatique) :"), SS_LEFT | SS_ENDELLIPSIS, 0, -1);
     U.vlcdir  = Mk(h, WC_EDITW, L"", ES_AUTOHSCROLL | WS_TABSTOP, WS_EX_CLIENTEDGE, IDS_VLCDIR);
     U.vlcBr   = Mk(h, WC_BUTTONW, L"…", BS_PUSHBUTTON | WS_TABSTOP, 0, IDS_VLCBROWSE);
@@ -2363,6 +2481,7 @@ static void MoveChannel(int dir)
     if (s < 0 || t < 0 || t >= g_nch) return;
     Channel tmp = g_ch[s]; g_ch[s] = g_ch[t]; g_ch[t] = tmp;
     if (g_cur == s) g_cur = t; else if (g_cur == t) g_cur = s;
+    if (g_pipCh == s) g_pipCh = t; else if (g_pipCh == t) g_pipCh = s;
     ChannelsChanged(1);
     FillLV();
     LvSelect(t);
@@ -2537,6 +2656,16 @@ static void SettingsCommand(HWND h, int id, int code)
         if (code == EN_CHANGE && !g_setInit) {
             wchar_t b[16]; GetWindowTextW(U.margin, b, 16);
             C.recMargin = Clamp(_wtoi(b), 0, 60);
+        }
+        break;
+    case IDS_PIPPOS:
+        if (code == CBN_SELCHANGE) { C.pipCorner = Clamp((int)SendMessageW(U.pipPos, CB_GETCURSEL, 0, 0), 0, 3); PipPlace(); }
+        break;
+    case IDS_PIPSIZE:
+        if (code == EN_CHANGE && !g_setInit) {
+            wchar_t b[16]; GetWindowTextW(U.pipSize, b, 16);
+            int v = _wtoi(b);
+            if (v >= 15 && v <= 50) { C.pipSize = v; PipPlace(); }
         }
         break;
     case IDS_LANG:
@@ -2751,6 +2880,7 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE prev, PWSTR cmd, int show)
     RegisterClassExW(&wc);
     GuideRegister(hi, ico);
     RecRegister(hi, ico);
+    PipRegister(hi);
     wc.lpfnWndProc = HudProc; wc.lpszClassName = L"VlcMasterHud"; wc.style = 0;
     wc.hbrBackground = NULL; wc.hIcon = NULL;
     RegisterClassExW(&wc);
@@ -2767,6 +2897,7 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE prev, PWSTR cmd, int show)
     g_hud = CreateWindowExW(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW,
                             L"VlcMasterHud", NULL, WS_POPUP, 0, 0, 10, 10, h, NULL, hi, NULL);
     if (g_hud) SetLayeredWindowAttributes(g_hud, 0, 225, LWA_ALPHA);
+    PipCreate(h);                     /* avant libVLC : le second lecteur y dessine */
     ApplyTopmost();
 
     if (C.thin) { SetWindowLongW(h, GWL_STYLE, (LONG)MainStyle()); SetWindowPos(h, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED); }
@@ -2796,7 +2927,7 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE prev, PWSTR cmd, int show)
         if (msg.message == WM_MOUSEWHEEL && g_main && GetAncestor(msg.hwnd, GA_ROOT) == g_main) {
             POINT pt = { GET_X_LPARAM(msg.lParam), GET_Y_LPARAM(msg.lParam) };
             HWND u = WindowFromPoint(pt);
-            if (u == g_host || IsChild(g_host, u)) {
+            if (u == g_host || IsChild(g_host, u) || (g_pip && (u == g_pip || IsChild(g_pip, u)))) {
                 SetVolume(C.volume + (GET_WHEEL_DELTA_WPARAM(msg.wParam) > 0 ? 5 : -5));
                 continue;
             }
