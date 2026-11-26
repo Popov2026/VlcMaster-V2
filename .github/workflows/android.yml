@@ -1,0 +1,52 @@
+# Compile l'APK Android de HomeRun Player (dossier android/).
+name: Android
+
+on:
+  push:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  pull_request:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: SDK Android (plateforme 36)
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Compilation de l'APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --console=plain
+
+      - name: Nom du fichier
+        run: |
+          ver=$(grep -oP 'val appVersion = "\K[^"]+' app/build.gradle.kts)
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/HomeRunPlayer-$ver-android.apk"
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HomeRunPlayer-android
+          path: android/dist/*.apk
+          if-no-files-found: error

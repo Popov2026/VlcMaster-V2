@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Généré par tools/gen_strings.py : modifier la table du script, pas ce fichier. -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="app_name">HomeRun Player</string>
+    <string name="channels">Canais</string>
+    <string name="btn_list">☰ Canais</string>
+    <string name="btn_prev">◀</string>
+    <string name="btn_next">▶</string>
+    <string name="btn_sound">🔊</string>
+    <string name="btn_muted">🔇</string>
+    <string name="btn_guide">Guia de TV</string>
+    <string name="btn_lang">♫ Idioma</string>
+    <string name="btn_rec">● Gravar</string>
+    <string name="btn_pip">PiP</string>
+    <string name="btn_recs">Gravações</string>
+    <string name="btn_full">⛶ Ecrã inteiro</string>
+    <string name="btn_settings">⚙ Definições</string>
+    <string name="btn_play">▶ Reproduzir</string>
+    <string name="btn_pause">❚❚ Pausa</string>
+    <string name="btn_back30">« 30 s</string>
+    <string name="btn_fwd30">30 s »</string>
+    <string name="settings">Definições</string>
+    <string name="opening">A abrir «%s»…</string>
+    <string name="loading_playlist">A carregar a lista…</string>
+    <string name="playlist_empty">A lista não contém canais</string>
+    <string name="playlist_error">%s\n\nVerifique o endereço da lista em ⚙ Definições.</string>
+    <string name="retrying">Fluxo interrompido — nova tentativa (%d)…</string>
+    <string name="cannot_play">Não é possível reproduzir «%s».\nTalvez todos os sintonizadores estejam ocupados.</string>
+    <string name="volume_pct">Volume %d %%</string>
+    <string name="muted">Som cortado</string>
+    <string name="unmuted">Som reposto</string>
+    <string name="next_prog">A seguir %1$s  %2$s</string>
+    <string name="no_channel_num">Sem canal %s</string>
+    <string name="firmware_available">HDHomeRun: atualização de firmware disponível (%s)</string>
+    <string name="ctx_play">Ver</string>
+    <string name="ctx_pip">No recorte (PiP)</string>
+    <string name="ctx_rec">Gravar…</string>
+    <string name="pip_title">Imagem na imagem (PiP)</string>
+    <string name="pip_choose">Canal do recorte</string>
+    <string name="pip_change">Mudar de canal</string>
+    <string name="pip_swap">Trocar as imagens</string>
+    <string name="pip_sound_to_pip">Som do recorte</string>
+    <string name="pip_sound_to_main">Som da imagem principal</string>
+    <string name="pip_move">Mover o recorte</string>
+    <string name="pip_close">Fechar o recorte</string>
+    <string name="pip_sound_pip">Som: recorte</string>
+    <string name="pip_sound_main">Som: imagem principal</string>
+    <string name="lang_title">Idioma e legendas</string>
+    <string name="trk_audio_item">Idioma do áudio: %s</string>
+    <string name="trk_spu_item">Legendas: %s</string>
+    <string name="trk_spu_off">Desativadas</string>
+    <string name="trk_none">Sem faixas de áudio nem legendas neste canal</string>
+    <string name="trk_qaa">Versão original</string>
+    <string name="trk_qad">Audiodescrição</string>
+    <string name="trk_qtz">Versão multilingue</string>
+    <string name="trk_mis">Não codificada</string>
+    <string name="trk_und">Indeterminado</string>
+    <string name="trk_ad">audiodescrição</string>
+    <string name="trk_hoh">deficientes auditivos</string>
+    <string name="guide_title">Guia de TV</string>
+    <string name="guide_loading">Guia de TV: a carregar…</string>
+    <string name="guide_refresh">Atualizar</string>
+    <string name="guide_watch">Ver</string>
+    <string name="guide_record">Gravar</string>
+    <string name="guide_no_data">Sem programa</string>
+    <string name="guide_err_no_tuner">Guia de TV indisponível: nenhum HDHomeRun detetado (%s)</string>
+    <string name="guide_err_service">Guia de TV indisponível: %s</string>
+    <string name="guide_err_empty">Guia de TV indisponível: o serviço não devolveu programas</string>
+    <string name="recordings">Gravações</string>
+    <string name="rec_title">Gravar %s</string>
+    <string name="rec_until_end">Até ao fim de «%1$s» (%2$s)</string>
+    <string name="rec_for">Gravar %s</string>
+    <string name="rec_unlimited">Gravar sem limite</string>
+    <string name="rec_stop_one">Parar a gravação de %s</string>
+    <string name="rec_started">● A gravar %s (sem limite)</string>
+    <string name="rec_started_until">● A gravar %1$s até às %2$s</string>
+    <string name="rec_done">Gravação de %1$s terminada · %2$s · %3$s</string>
+    <string name="rec_stopped_err">Gravação de %1$s parada (%2$s) · %3$s · %4$s</string>
+    <string name="rec_failed">Não é possível gravar %1$s: %2$s</string>
+    <string name="rec_no_data">nenhum dado recebido</string>
+    <string name="rec_err_no_tuner">nenhum sintonizador livre</string>
+    <string name="rec_until">até às %s</string>
+    <string name="rec_no_limit">sem limite</string>
+    <string name="rec_starting">A iniciar…</string>
+    <string name="rec_stop_all">Parar tudo</string>
+    <string name="rec_stop">Parar</string>
+    <string name="rec_stop_confirm">Parar esta gravação?</string>
+    <string name="rec_indicator">● GRAV</string>
+    <string name="rec_live_line">A gravar · %1$s · %2$s</string>
+    <string name="rec_resume_at">retomar em %s</string>
+    <string name="rec_play">Reproduzir</string>
+    <string name="rec_play_start">Reproduzir desde o início</string>
+    <string name="rec_empty">Nenhuma gravação</string>
+    <string name="rec_folder">Pasta: %s</string>
+    <string name="rec_delete_title">Eliminar</string>
+    <string name="rec_delete_msg">Eliminar «%s»?\n\nO ficheiro será apagado definitivamente.</string>
+    <string name="delete">Eliminar</string>
+    <string name="notif_channel_rec">Gravações</string>
+    <string name="tuner_title">Sintonizador HDHomeRun</string>
+    <string name="tuner_loading">A ler %s…</string>
+    <string name="tuner_unreachable">HDHomeRun inacessível (%1$s): %2$s</string>
+    <string name="tuner_name">Nome</string>
+    <string name="tuner_model">Modelo</string>
+    <string name="tuner_id">Identificador</string>
+    <string name="tuner_count">Sintonizadores</string>
+    <string name="tuner_fw">Firmware</string>
+    <string name="tuner_upgrade">Atualização de firmware disponível: %s\nInstala-se a partir da página do sintonizador ou da app HDHomeRun.</string>
+    <string name="tuner_up_to_date">Firmware atualizado</string>
+    <string name="tuner_refresh">Atualizar</string>
+    <string name="tuner_web">Página do sintonizador</string>
+    <string name="scan_title">Procura de canais</string>
+    <string name="scan_help">Procura todos os canais recebidos pela antena. Durante a procura o sintonizador não pode transmitir; a lista é substituída no fim.</string>
+    <string name="scan_confirm">Iniciar uma procura de canais? A reprodução e as gravações serão interrompidas.</string>
+    <string name="scan_start">Iniciar procura</string>
+    <string name="scan_abort">Parar procura</string>
+    <string name="scan_progress" formatted="false">Procura: %1$d %% · %2$d canais encontrados</string>
+    <string name="scan_done">Procura terminada. A lista de canais será recarregada.</string>
+    <string name="scan_failed">Não foi possível iniciar a procura: %s</string>
+    <string name="update_banner">Nova versão %s disponível — toque para transferir (toque longo: ignorar)</string>
+    <string name="update_checking">A verificar…</string>
+    <string name="update_none">Versão %1$s atualizada (última: %2$s)</string>
+    <string name="update_failed">Não foi possível verificar: %s</string>
+    <string name="version_current">Versão %s</string>
+    <string name="set_cat_play">Reprodução</string>
+    <string name="set_cat_guide">Guia de TV e gravação</string>
+    <string name="set_cat_ui">Interface</string>
+    <string name="set_cat_tuner">HDHomeRun e atualizações</string>
+    <string name="set_playlist">Endereço da lista (lineup.m3u)</string>
+    <string name="set_playlist_help">Exemplo: http://192.168.1.90/lineup.m3u</string>
+    <string name="set_resume">Retomar o último canal ao iniciar</string>
+    <string name="set_cache">Cache de rede</string>
+    <string name="set_hw">Descodificação por hardware</string>
+    <string name="set_hw_help">Desative-a se a imagem estiver verde ou aos saltos</string>
+    <string name="set_deint">Desentrelaçamento</string>
+    <string name="set_aspect">Proporção da imagem</string>
+    <string name="set_guide">Guia de TV</string>
+    <string name="set_guide_help">Programa atual sob cada canal (serviço de guia da SiliconDust)</string>
+    <string name="set_margin">Margem após o fim do programa</string>
+    <string name="set_lang">Idioma</string>
+    <string name="set_tuner_help">Modelo, firmware, procura de canais</string>
+    <string name="set_updchk">Avisar de novas versões</string>
+    <string name="set_updnow">Verificar agora</string>
+    <plurals name="rec_notif_title">
+        <item quantity="one">%d gravação em curso</item>
+        <item quantity="other">%d gravações em curso</item>
+    </plurals>
+    <string-array name="cache_labels">
+        <item>300 ms</item>
+        <item>1 s</item>
+        <item>2 s</item>
+        <item>3 s</item>
+        <item>5 s</item>
+    </string-array>
+    <string-array name="deint_labels">
+        <item>Desativado</item>
+        <item>Yadif</item>
+        <item>Yadif 2x (fluido)</item>
+        <item>Bob</item>
+        <item>Linear</item>
+        <item>Mistura</item>
+    </string-array>
+    <string-array name="aspect_labels">
+        <item>Predefinido</item>
+        <item>16:9</item>
+        <item>4:3</item>
+        <item>16:10</item>
+        <item>21:9</item>
+        <item>2.35:1</item>
+    </string-array>
+    <string-array name="margin_labels">
+        <item>0 min</item>
+        <item>5 min</item>
+        <item>10 min</item>
+        <item>15 min</item>
+        <item>30 min</item>
+    </string-array>
+    <string-array name="lang_labels">
+        <item>Idioma do sistema</item>
+        <item>Français</item>
+        <item>English</item>
+        <item>Español</item>
+        <item>Deutsch</item>
+        <item>Italiano</item>
+        <item>Português</item>
+    </string-array>
+</resources>
