@@ -7,8 +7,8 @@
 1 ICON "app.ico"
 
 1 VERSIONINFO
-FILEVERSION     3,5,0,0
-PRODUCTVERSION  3,5,0,0
+FILEVERSION     3,6,0,0
+PRODUCTVERSION  3,6,0,0
 FILEOS          0x40004
 FILETYPE        0x1
 BEGIN
@@ -18,9 +18,9 @@ BEGIN
     BEGIN
       VALUE "CompanyName",      "Popov"
       VALUE "FileDescription",  "HomeRun Player - lecteur TV HDHomeRun"
-      VALUE "FileVersion",      "3.5.0"
+      VALUE "FileVersion",      "3.6.0"
       VALUE "ProductName",      "HomeRun Player"
-      VALUE "ProductVersion",   "3.5.0"
+      VALUE "ProductVersion",   "3.6.0"
       VALUE "LegalCopyright",   "Popov 2026"
       VALUE "OriginalFilename", "HomeRunPlayer.exe"
     END

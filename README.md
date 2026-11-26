@@ -16,6 +16,12 @@ plus besoin de lancer un VLC externe ni d'activer son interface HTTP.
 - **Vidéo intégrée** : libVLC dessine l'image dans la fenêtre (Direct3D 11, décodage matériel).
 - **Liste des chaînes automatique** : lue depuis `lineup.m3u` (noms et numéros du tuner), affichable / masquable.
 - **Zapping instantané** : ← → , molette, saisie du numéro au clavier ; les appuis rapides sont regroupés.
+- **HDHomeRun** (Paramètres › Source) : modèle, nombre de tuners, version du firmware et **mise à jour du firmware disponible**
+  (signalée aussi au démarrage) ; bouton **Rechercher les chaînes** (scan du tuner avec progression, liste rechargée à la fin) et
+  accès à la page web du tuner.
+- **Mises à jour de HomeRun Player** : au démarrage (puis toutes les 12 h), l'appli compare sa version à la dernière release
+  GitHub ; si elle est plus récente, un **bandeau** apparaît en haut de la fenêtre avec **Télécharger** (zip) et **Nouveautés**.
+  ✕ masque le bandeau pour cette version ; désactivable et « Vérifier maintenant » dans Paramètres › Interface.
 - **Langues et sous-titres** (bouton ♫ Langue, ou clic droit sur l'image) : pistes audio de la chaîne (français, version originale,
   audiodescription, autres langues) et sous-titres (dont malentendants). V = piste audio suivante, U = sous-titres suivants.
   Le choix est mémorisé et réappliqué sur les chaînes qui proposent la même piste (ex. : toujours la VO quand elle existe).

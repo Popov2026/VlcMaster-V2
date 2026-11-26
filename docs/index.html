@@ -130,6 +130,10 @@
     shown when you zap or change the volume, or with <kbd>I</kbd>.</li>
   <li><strong>Window modes</strong>: full screen, a thin-border window without title bar, preset picture sizes (1080p, 720p, 480p,
     240p or your own), always on top or normal; the control bar adapts to small windows.</li>
+  <li><strong>Tuner tools</strong>: model, number of tuners and firmware version of your HDHomeRun, with a warning when a firmware
+    update is available; <strong>Scan for channels</strong> runs the tuner's channel scan with a progress bar and reloads the list.</li>
+  <li><strong>Update notice</strong>: when a new version of HomeRun Player is published, a banner at the top of the window offers to
+    download it (can be turned off).</li>
   <li><strong>Languages and subtitles</strong>: choose the audio track of the channel (French, original version, audio description,
     other languages) and the subtitles (including for the hard of hearing) from the <strong>♫ Language</strong> button; your choice is
     remembered and applied again on every channel that offers the same track.</li>
@@ -185,6 +189,14 @@
   records in an allowed folder instead (<code>Enregistrements</code> next to the program). You can allow HomeRun Player in Windows Security or
   choose another folder in Settings.</p>
 
+<h3>Tuner and updates</h3>
+<p><strong>⚙ Settings › Source</strong> shows your HDHomeRun (model, tuners, firmware) and tells you when SiliconDust offers a firmware
+  update; <strong>Tuner page…</strong> opens the tuner's own web page, where you install it. <strong>Scan for channels</strong> asks the tuner
+  to search all channels again — it takes a few minutes and uses every tuner, so playback stops — then reloads the channel list.</p>
+<p>When a new version of HomeRun Player is available, a banner appears at the top of the window: <strong>Download</strong> gets the new zip,
+  <strong>What's new</strong> opens the release notes, ✕ hides the banner for that version. Turn the check off or run it by hand in
+  <strong>⚙ Settings › Interface</strong>.</p>
+
 <h3>Languages and subtitles</h3>
 <p>Many channels broadcast several audio tracks — original version, audio description, sometimes other languages — and subtitles.
   Click <strong>♫ Language</strong> (or right-click the picture) to pick one, or press <kbd>V</kbd> for the next audio track and
@@ -237,6 +249,10 @@
   <li>your tuner on your local network, to read the channel list and the TV streams;</li>
   <li>for the TV guide only, SiliconDust's guide service (<code>api.hdhomerun.com</code>), with your tuner's identifier, as the official HDHomeRun
     app does. You can turn the guide off in <strong>⚙ Settings › Source</strong>.</li>
+</ul>
+<ul>
+  <li>to check for new versions, GitHub's public release API (<code>api.github.com</code>) at startup and every 12 hours, without any
+    personal data; you can turn this off in <strong>⚙ Settings › Interface</strong>.</li>
 </ul>
 <p>Recordings and settings stay on your computer.</p>
 

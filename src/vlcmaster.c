@@ -38,14 +38,16 @@
 #include "libvlc_dyn.h"
 
 #define APP_NAME L"HomeRun Player"
-#define APP_VER  L"3.5"
+#ifndef APP_VER                 /* version du player (comparée aux releases GitHub) */
+#define APP_VER  L"3.6"
+#endif
 #define INI_NAME L"HomeRunPlayer"
 
 /* ------------------------------------------------------------------ */
 /* Identifiants                                                        */
 /* ------------------------------------------------------------------ */
-enum { WM_APP_VLCREADY = WM_APP + 1, WM_APP_VLCEVENT, WM_APP_PLAYLIST, WM_APP_WORKERDONE, WM_APP_GUIDE, WM_APP_REC, WM_APP_PIPEVENT };
-enum { TMR_FS = 1, TMR_DIGITS, TMR_RETRY, TMR_REPLAY, TMR_FORCEQUIT, TMR_FLASH, TMR_SIZE, TMR_HUD, TMR_GUIDE, TMR_MINUTE, TMR_REC, TMR_MPC, TMR_PIPRETRY, TMR_TRACKS };
+enum { WM_APP_VLCREADY = WM_APP + 1, WM_APP_VLCEVENT, WM_APP_PLAYLIST, WM_APP_WORKERDONE, WM_APP_GUIDE, WM_APP_REC, WM_APP_PIPEVENT, WM_APP_TUNER, WM_APP_SCAN, WM_APP_UPD };
+enum { TMR_FS = 1, TMR_DIGITS, TMR_RETRY, TMR_REPLAY, TMR_FORCEQUIT, TMR_FLASH, TMR_SIZE, TMR_HUD, TMR_GUIDE, TMR_MINUTE, TMR_REC, TMR_MPC, TMR_PIPRETRY, TMR_TRACKS, TMR_UPDCHECK };
 
 enum {
     IDC_HOST = 100, IDC_LIST, IDC_PREV, IDC_NEXT, IDC_PAUSE, IDC_STOP, IDC_VOL,
@@ -57,7 +59,7 @@ enum {
     IDS_DOWN, IDS_RENAME, IDS_ORIGNAME, IDS_SHOWALL, IDS_CLOSE,
     IDS_THIN, IDS_THINBAR, IDS_SIZES, IDS_HUD, IDS_HUDSPIN, IDS_GUIDE,
     IDS_RECDIR, IDS_RECBROWSE, IDS_RECMARGIN, IDS_RECMARGINSPIN,
-    IDS_ENGINE, IDS_MPCPATH, IDS_MPCBROWSE, IDS_TAB, IDS_LANG, IDS_PIPPOS, IDS_PIPSIZE, IDS_PIPSIZESPIN,
+    IDS_ENGINE, IDS_MPCPATH, IDS_MPCBROWSE, IDS_TAB, IDS_LANG, IDS_PIPPOS, IDS_PIPSIZE, IDS_PIPSIZESPIN, IDS_SCAN, IDS_TUNERPAGE, IDS_UPDCHK, IDS_UPDNOW,
 
     IDM_PLAY = 300, IDM_RENAME, IDM_HIDE,
     IDM_ASPECT0 = 400, IDM_DEINT0 = 450,
@@ -127,6 +129,7 @@ static struct {
     int lang;
     int pip, pipCorner, pipSize; unsigned long long pipKey;
     wchar_t prefAudio[64], prefSpu[64];      /* langue audio / sous-titres mémorisées */
+    int updCheck; wchar_t updSkip[32];        /* mises à jour du player */
     wchar_t sizes[256];
     unsigned long long lastkey;
     RECT mainrc; int mainmax; RECT setrc;
@@ -175,6 +178,7 @@ static struct { int has, stop, caching; char url[1024]; char hw[16]; } g_req2;
 static HWND    g_pip, g_pipVid;
 static int     g_pipOn, g_pipCh = -1, g_pipActive, g_pipPlaying, g_pipRetries;
 static wchar_t g_pipState[96], g_pipMsg[200];
+static HWND    g_banner; static int g_bannerOn;     /* bandeau « nouvelle version » (update.h) */
 static int PipHasSound(void) { return g_pipOn && g_pipActive && g_pipCh >= 0; }
 static int HudCh(void)       { return PipHasSound() ? g_pipCh : g_cur; }     /* image qui a le son */
 
@@ -191,6 +195,8 @@ static struct {
     HWND lblEng, engine, lblMpc, mpcPath, mpcBr;
     HWND tab, lblLang, lang;
     HWND lblPipPos, pipPos, lblPipSize, pipSize, pipSizeSp;
+    HWND tunerInfo, scanBtn, tunerPage, scanInfo;
+    HWND updChk, updNow, updInfo;
     HWND lv, up, down, rename, orig, showall, hint, close;
 } U;
 static HFONT g_sfont, g_sfontBold;
@@ -329,6 +335,8 @@ static void LoadConfig(void)
     C.engine   = Clamp(IniInt(L"Lecture", L"Moteur", 0), 0, 2);
     C.lang     = IniInt(L"Interface", L"Langue", -1);
     C.pip       = IniInt(L"Interface", L"PIP", 0) != 0;
+    C.updCheck  = IniInt(L"Interface", L"VerifierMAJ", 1) != 0;
+    GetPrivateProfileStringW(L"General", L"MajIgnoree", L"", C.updSkip, 32, g_ini);
     GetPrivateProfileStringW(L"Lecture", L"LangueAudio", L"", C.prefAudio, 64, g_ini);
     GetPrivateProfileStringW(L"Lecture", L"SousTitres", L"", C.prefSpu, 64, g_ini);
     C.pipCorner = Clamp(IniInt(L"Interface", L"PIPPosition", 3), 0, 3);
@@ -371,6 +379,8 @@ static void SaveConfig(void)
     IniPutInt(L"Lecture", L"Moteur", C.engine);
     IniPutInt(L"Interface", L"Langue", C.lang);
     IniPutInt(L"Interface", L"PIP", C.pip);
+    IniPutInt(L"Interface", L"VerifierMAJ", C.updCheck);
+    WritePrivateProfileStringW(L"General", L"MajIgnoree", C.updSkip, g_ini);
     WritePrivateProfileStringW(L"Lecture", L"LangueAudio", C.prefAudio, g_ini);
     WritePrivateProfileStringW(L"Lecture", L"SousTitres", C.prefSpu, g_ini);
     IniPutInt(L"Interface", L"PIPPosition", C.pipCorner);
@@ -758,6 +768,7 @@ static HWND g_rw;                               /* fenêtre Enregistrements (rec
 static void PlayActive(int ch);
 static void PipResume(void);
 static void PipOff(void);
+static void TunerRefresh(void);
 
 static void SetHostMsg(const wchar_t *m)
 {
@@ -1069,6 +1080,7 @@ static void OnPlaylist(WPARAM gen, PlResult *r)
             SetHostMsg(TR(L"Choisissez une chaîne dans la liste\n(ou ← → pour zapper)."));
         }
         if (g_vlcState == 1) PipResume();
+        TunerRefresh();                         /* modèle, firmware, mise à jour disponible */
     }
     free(r);
 }
@@ -1323,9 +1335,12 @@ static void LayoutMain(void)
     int listW = (C.showlist && !g_full) ? S(240) : 0;
     if (listW > W / 2) listW = W / 2;
 
-    HDWP d = BeginDeferWindowPos(18);
-    d = DeferWindowPos(d, g_host, NULL, b, b, W - listW, H - barH, SWP_NOZORDER | SWP_NOACTIVATE);
-    d = DeferWindowPos(d, g_list, NULL, b + W - listW, b, listW, H - barH,
+    int banH = (g_bannerOn && !g_full) ? S(38) : 0;     /* bandeau de mise à jour */
+
+    HDWP d = BeginDeferWindowPos(24);
+    if (g_banner) d = DeferWindowPos(d, g_banner, NULL, b, b, W, banH, SWP_NOZORDER | SWP_NOACTIVATE | (banH ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
+    d = DeferWindowPos(d, g_host, NULL, b, b + banH, W - listW, H - barH - banH, SWP_NOZORDER | SWP_NOACTIVATE);
+    d = DeferWindowPos(d, g_list, NULL, b + W - listW, b + banH, listW, H - barH - banH,
                        SWP_NOZORDER | SWP_NOACTIVATE | (listW ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
 
     /* Barre : on masque les éléments les moins prioritaires si la place manque. */
@@ -1498,6 +1513,8 @@ static void OnVlcEvent(int type, int val)
 #include "record.h"
 #include "pip.h"
 #include "tracks.h"
+#include "tuner.h"
+#include "update.h"
 
 static void OpenSettings(int editCh);
 
@@ -2073,6 +2090,10 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         case TMR_GUIDE: GuideLoad(); break;
         case TMR_REC: RecTick(); break;
         case TMR_MPC: MpcTick(); break;
+        case TMR_UPDCHECK:
+            SetTimer(h, TMR_UPDCHECK, 12u * 3600u * 1000u, NULL);   /* puis toutes les 12 h */
+            if (C.updCheck) UpdCheck(0);
+            break;
         case TMR_TRACKS: KillTimer(h, TMR_TRACKS); TracksApplyPref(); break;
         case TMR_PIPRETRY: KillTimer(h, TMR_PIPRETRY); if (g_pipOn) PipRequest(0); break;
         case TMR_MINUTE:   /* avancement des programmes */
@@ -2114,6 +2135,9 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
     case WM_APP_GUIDE: OnGuide(w, (GuideResult *)l); return 0;
     case WM_APP_REC: RecFinished((int)w); return 0;
     case WM_APP_PIPEVENT: OnPipEvent((int)w, (int)l); return 0;
+    case WM_APP_TUNER: OnTuner((TunerInfo *)l); return 0;
+    case WM_APP_UPD: OnUpd((UpdInfo *)l); return 0;
+    case WM_APP_SCAN: OnScan(w, l); return 0;
     case WM_COPYDATA:
         if (g_engine && l) { MpcOnCopyData((const COPYDATASTRUCT *)l); return TRUE; }
         break;
@@ -2201,7 +2225,11 @@ static int LayoutSettings(int W, int H, BOOL apply)
     P(U.recdir, x, y, lw - SS(34) - sp, rh);
     P(U.recBr, x + lw - SS(34), y, SS(34), rh); y += rh + SS(8);
     P(U.lblMargin, x, y + (rh - lh) / 2, labw + SS(110), lh);
-    P(U.margin, x + labw + SS(110) + g, y, SS(90), rh); y += rh;
+    P(U.margin, x + labw + SS(110) + g, y, SS(90), rh); y += rh + SS(16);
+    P(U.tunerInfo, x, y, lw, lh * 2 + SS(2)); y += lh * 2 + SS(10);       /* HDHomeRun : modèle, firmware */
+    P(U.scanBtn, x, y, SS(230), rh);
+    P(U.tunerPage, x + SS(238), y, SS(170), rh); y += rh + SS(6);
+    P(U.scanInfo, x, y, lw, lh); y += lh;
 
     PAGE(1);                                          /* Lecture */
     HDR(1);
@@ -2227,7 +2255,10 @@ static int LayoutSettings(int W, int H, BOOL apply)
     P(U.hud, x + labw + SS(110) + g, y, SS(90), rh); y += rh + SS(10);
     ROW(U.lblPipPos, U.pipPos, SS(220), 1);
     P(U.lblPipSize, x, y + (rh - lh) / 2, labw + SS(110), lh);
-    P(U.pipSize, x + labw + SS(110) + g, y, SS(90), rh); y += rh;
+    P(U.pipSize, x + labw + SS(110) + g, y, SS(90), rh); y += rh + SS(14);
+    P(U.updChk, x, y, lw, rh); y += rh + SS(4);
+    P(U.updNow, x, y, SS(200), rh);
+    P(U.updInfo, x + SS(208), y + (rh - lh) / 2, lw - SS(208), lh); y += rh;
 
     PAGE(3);                                          /* Moteur de lecture */
     HDR(3);
@@ -2341,6 +2372,8 @@ static void SettingsSync(void)
     SetWindowTextW(U.vlcInfo, g_vlcInfo);
     SendMessageW(U.engine, CB_SETCURSEL, (WPARAM)C.engine, 0);
     SendMessageW(U.lang, CB_SETCURSEL, (WPARAM)C.lang, 0);
+    Button_SetCheck(U.updChk, C.updCheck ? BST_CHECKED : BST_UNCHECKED);
+    UpdSettingsInfo();
     SendMessageW(U.pipPos, CB_SETCURSEL, (WPARAM)C.pipCorner, 0);
     SendMessageW(U.pipSizeSp, UDM_SETPOS32, 0, C.pipSize);
     GetWindowTextW(U.mpcPath, cur, MAX_PATH);
@@ -2442,6 +2475,10 @@ static void CreateSettingsControls(HWND h)
     U.marginSp = Mk(h, UPDOWN_CLASSW, NULL, UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_NOTHOUSANDS, 0, IDS_RECMARGINSPIN);
     SendMessageW(U.marginSp, UDM_SETBUDDY, (WPARAM)U.margin, 0);
     SendMessageW(U.marginSp, UDM_SETRANGE32, 0, 60);
+    U.tunerInfo = Mk(h, WC_STATICW, L"", SS_LEFT | SS_NOPREFIX, 0, -1);
+    U.scanBtn   = Mk(h, WC_BUTTONW, L"", BS_PUSHBUTTON | WS_TABSTOP, 0, IDS_SCAN);
+    U.tunerPage = Mk(h, WC_BUTTONW, TR(L"Page du tuner…"), BS_PUSHBUTTON | WS_TABSTOP, 0, IDS_TUNERPAGE);
+    U.scanInfo  = Mk(h, WC_STATICW, L"", SS_LEFT | SS_NOPREFIX | SS_ENDELLIPSIS, 0, -1);
     U.hudSp    = Mk(h, UPDOWN_CLASSW, NULL, UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_NOTHOUSANDS, 0, IDS_HUDSPIN);
     SendMessageW(U.hudSp, UDM_SETBUDDY, (WPARAM)U.hud, 0);
     SendMessageW(U.hudSp, UDM_SETRANGE32, 0, 60);
@@ -2454,6 +2491,9 @@ static void CreateSettingsControls(HWND h)
     U.pipSizeSp  = Mk(h, UPDOWN_CLASSW, NULL, UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_NOTHOUSANDS, 0, IDS_PIPSIZESPIN);
     SendMessageW(U.pipSizeSp, UDM_SETBUDDY, (WPARAM)U.pipSize, 0);
     SendMessageW(U.pipSizeSp, UDM_SETRANGE32, 15, 50);
+    U.updChk  = Mk(h, WC_BUTTONW, TR(L"Vérifier au démarrage si une nouvelle version de HomeRun Player est disponible"), BS_AUTOCHECKBOX | WS_TABSTOP, 0, IDS_UPDCHK);
+    U.updNow  = Mk(h, WC_BUTTONW, TR(L"Vérifier maintenant"), BS_PUSHBUTTON | WS_TABSTOP, 0, IDS_UPDNOW);
+    U.updInfo = Mk(h, WC_STATICW, L"", SS_LEFT | SS_NOPREFIX | SS_ENDELLIPSIS, 0, -1);
     U.lblVlc  = Mk(h, WC_STATICW, TR(L"Dossier de VLC 64 bits (vide = détection automatique) :"), SS_LEFT | SS_ENDELLIPSIS, 0, -1);
     U.vlcdir  = Mk(h, WC_EDITW, L"", ES_AUTOHSCROLL | WS_TABSTOP, WS_EX_CLIENTEDGE, IDS_VLCDIR);
     U.vlcBr   = Mk(h, WC_BUTTONW, L"…", BS_PUSHBUTTON | WS_TABSTOP, 0, IDS_VLCBROWSE);
@@ -2675,6 +2715,14 @@ static void SettingsCommand(HWND h, int id, int code)
             C.recMargin = Clamp(_wtoi(b), 0, 60);
         }
         break;
+    case IDS_SCAN: ScanStart(h); break;
+    case IDS_UPDCHK:
+        C.updCheck = Button_GetCheck(U.updChk) == BST_CHECKED;
+        if (!C.updCheck) BannerShow(0);
+        SaveConfig();
+        break;
+    case IDS_UPDNOW: UpdCheck(1); break;
+    case IDS_TUNERPAGE: TunerOpenPage(); break;
     case IDS_PIPPOS:
         if (code == CBN_SELCHANGE) { C.pipCorner = Clamp((int)SendMessageW(U.pipPos, CB_GETCURSEL, 0, 0), 0, 3); PipPlace(); }
         break;
@@ -2751,6 +2799,8 @@ static LRESULT CALLBACK SettingsProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         ApplySettingsFonts();
         SettingsSync();
         FillLV();
+        TunerUI();
+        TunerRefresh();
         return 0;
     case WM_SIZE:
         if (w != SIZE_MINIMIZED) LayoutSettings(LOWORD(l), HIWORD(l), TRUE);
@@ -2769,6 +2819,11 @@ static LRESULT CALLBACK SettingsProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         SetWindowPos(h, NULL, r->left, r->top, r->right - r->left, r->bottom - r->top, SWP_NOZORDER | SWP_NOACTIVATE);
         return 0; }
     case WM_CTLCOLORSTATIC:
+        if ((HWND)l == U.tunerInfo && g_tuner.ok && g_tuner.upgrade[0]) {   /* mise à jour disponible */
+            SetTextColor((HDC)w, RGB(200, 100, 0));
+            SetBkColor((HDC)w, GetSysColor(COLOR_BTNFACE));
+            return (LRESULT)GetSysColorBrush(COLOR_BTNFACE);
+        }
         for (int i = 0; i < 5; i++) if ((HWND)l == U.hdr[i]) {
             SetTextColor((HDC)w, RGB(0, 95, 184));
             SetBkColor((HDC)w, GetSysColor(COLOR_BTNFACE));
@@ -2898,6 +2953,7 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE prev, PWSTR cmd, int show)
     GuideRegister(hi, ico);
     RecRegister(hi, ico);
     PipRegister(hi);
+    BannerRegister(hi);
     wc.lpfnWndProc = HudProc; wc.lpszClassName = L"VlcMasterHud"; wc.style = 0;
     wc.hbrBackground = NULL; wc.hIcon = NULL;
     RegisterClassExW(&wc);
@@ -2915,6 +2971,8 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE prev, PWSTR cmd, int show)
                             L"VlcMasterHud", NULL, WS_POPUP, 0, 0, 10, 10, h, NULL, hi, NULL);
     if (g_hud) SetLayeredWindowAttributes(g_hud, 0, 225, LWA_ALPHA);
     PipCreate(h);                     /* avant libVLC : le second lecteur y dessine */
+    BannerCreate(h);
+    SetTimer(h, TMR_UPDCHECK, 4000, NULL);   /* nouvelle version ? (si activé) */
     ApplyTopmost();
 
     if (C.thin) { SetWindowLongW(h, GWL_STYLE, (LONG)MainStyle()); SetWindowPos(h, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED); }
