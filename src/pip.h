@@ -207,10 +207,27 @@ static void OnPipEvent(int type, int val)
 /* ------------------------------------------------------------------ */
 /* Menu de l'encart et commandes                                       */
 /* ------------------------------------------------------------------ */
+/* En tête des menus du clic droit (image principale et encart) : d'où vient le son.
+   Deux choix à puce avec le nom de chaque chaîne ; Tab bascule aussi. */
+static void PipSoundItems(HMENU m)
+{
+    if (!g_pipOn) return;
+    wchar_t a[200], b[200];
+    const wchar_t *mainName = g_fileMode ? g_fileTitle : (g_cur >= 0 && g_cur < g_nch ? g_ch[g_cur].name : L"");
+    const wchar_t *pipName = g_pipCh >= 0 && g_pipCh < g_nch ? g_ch[g_pipCh].name : L"";
+    swprintf(a, 200, TR(L"Son : image principale — %ls"), mainName);
+    swprintf(b, 200, TR(L"Son : PIP — %ls"), pipName);
+    wcscat(a, L"\tTab"); wcscat(b, L"\tTab");
+    AppendMenuW(m, MF_STRING, IDM_PIPSNDMAIN, a);
+    AppendMenuW(m, MF_STRING, IDM_PIPSNDPIP, b);
+    CheckMenuRadioItem(m, IDM_PIPSNDMAIN, IDM_PIPSNDPIP, PipHasSound() ? IDM_PIPSNDPIP : IDM_PIPSNDMAIN, MF_BYCOMMAND);
+    AppendMenuW(m, MF_SEPARATOR, 0, NULL);
+}
+
 static void PipMenu(int x, int y)
 {
     HMENU m = CreatePopupMenu(), pos = CreatePopupMenu(), sz = CreatePopupMenu();
-    AppendMenuW(m, MF_STRING | (PipHasSound() ? MF_CHECKED : 0), IDM_PIPSOUND, TR(L"Son du PIP\tTab"));
+    PipSoundItems(m);
     AppendMenuW(m, MF_STRING | (g_fileMode ? MF_GRAYED : 0), IDM_PIPSWAP, TR(L"Inverser avec l'image principale\tW"));
     AppendMenuW(m, MF_SEPARATOR, 0, NULL);
     for (int i = 0; i < 4; i++)
@@ -235,6 +252,8 @@ static int PipCommand(int id)
     if (id == IDM_PIPOFF) { PipOff(); return 1; }
     if (id == IDM_PIPTOGGLE) { PipToggle(); return 1; }
     if (id == IDM_PIPSOUND) { PipSetActive(!g_pipActive); return 1; }
+    if (id == IDM_PIPSNDMAIN) { PipSetActive(0); return 1; }
+    if (id == IDM_PIPSNDPIP) { PipSetActive(1); return 1; }
     if (id >= IDM_PIPPOS0 && id < IDM_PIPPOS0 + 4) { C.pipCorner = id - IDM_PIPPOS0; PipPlace(); SettingsSync(); return 1; }
     if (id >= IDM_PIPSIZE0 && id < IDM_PIPSIZE0 + 5) { C.pipSize = PIP_SIZES[id - IDM_PIPSIZE0]; PipPlace(); SettingsSync(); return 1; }
     return 0;

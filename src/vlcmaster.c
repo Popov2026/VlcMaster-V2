@@ -72,7 +72,7 @@
 
 #define APP_NAME L"HomeRun Player"
 #ifndef APP_VER                 /* version du player (comparée aux releases GitHub) */
-#define APP_VER  L"3.6"
+#define APP_VER  L"3.6.1"
 #endif
 #define INI_NAME L"HomeRunPlayer"
 
@@ -98,7 +98,7 @@ enum {
     IDM_ASPECT0 = 400, IDM_DEINT0 = 450,
     IDM_SIZEDEF = 499, IDM_SIZE0 = 500, IDM_THIN = 600, IDM_MINIMIZE, IDM_QUIT, IDM_GUIDE,
     IDM_RECEND = 650, IDM_RECINF, IDM_RECCH, IDM_RECDUR0 = 660, IDM_RECSTOP0 = 670,
-    IDM_PIPCH = 900, IDM_PIPSWAP, IDM_PIPOFF, IDM_PIPSOUND, IDM_PIPTOGGLE, IDM_PIPPOS0 = 910, IDM_PIPSIZE0 = 920,
+    IDM_PIPCH = 900, IDM_PIPSWAP, IDM_PIPOFF, IDM_PIPSOUND, IDM_PIPTOGGLE, IDM_PIPSNDMAIN, IDM_PIPSNDPIP, IDM_PIPPOS0 = 910, IDM_PIPSIZE0 = 920,
     IDM_AUD0 = 930, IDM_SPU0 = 970
 };
 
@@ -1821,6 +1821,7 @@ static LRESULT CALLBACK HudProc(HWND h, UINT msg, WPARAM w, LPARAM l)
 static void ShowVideoMenu(int x, int y)
 {
     HMENU m = CreatePopupMenu(), a = CreatePopupMenu(), dm = CreatePopupMenu();
+    PipSoundItems(m);                       /* PIP ouvert : choix de la source du son en premier */
     AppendMenuW(m, MF_STRING | (g_paused ? MF_CHECKED : 0), IDC_PAUSE, TR(L"Pause\tEspace"));
     AppendMenuW(m, MF_STRING, IDC_STOP, TR(L"Stop\tS"));
     AppendMenuW(m, MF_STRING | (C.muted ? MF_CHECKED : 0), IDC_MUTE, TR(L"Muet\tM"));
