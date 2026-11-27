@@ -13,6 +13,7 @@ VERSION="${VERSION#v}"
 echo "== HomeRun Player $VERSION =="
 
 tools/fetch_vlckit.sh
+[ -d Vendor/VLCKit.xcframework ] || { echo "VLCKit absent (Vendor/VLCKit.xcframework)" >&2; exit 1; }
 tools/make_icon.sh || echo "(icône non générée)"
 
 xcodegen generate

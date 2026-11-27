@@ -15,7 +15,7 @@ fi
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
-echo "Téléchargement de VLCKit $VER…"
+echo "Téléchargement de VLCKit ${VER}…"
 curl -fL --retry 3 -o "$TMP/vlckit.tar.xz" "$URL"
 echo "$SHA  $TMP/vlckit.tar.xz" | shasum -a 256 -c -
 mkdir -p "$TMP/x"
