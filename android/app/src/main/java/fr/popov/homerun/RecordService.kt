@@ -87,7 +87,12 @@ class RecordService : Service() {
 
         fun fmtDur(sec: Long): String {
             val h = sec / 3600; val m = (sec / 60) % 60; val s = sec % 60
-            return if (h > 0) String.format(Locale.US, "%d h %02d", h, m) else String.format(Locale.US, "%d min %02d s", m, s)
+            return when {
+                h > 0 && m == 0L -> "$h h"
+                h > 0 -> String.format(Locale.US, "%d h %02d", h, m)
+                s == 0L -> "$m min"
+                else -> String.format(Locale.US, "%d min %02d s", m, s)
+            }
         }
     }
 

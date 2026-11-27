@@ -63,8 +63,10 @@ adb install -r app\build\outputs\apk\release\app-release.apk
 
 ## Reste à faire / non vérifié
 
-- Scan réel non lancé (volontairement) ; scan simulé non encore exercé jusqu'au bout dans l'émulateur.
+- Scan réel non lancé (volontairement) ; scan simulé vérifié jusqu'au bout sur le faux tuner
+  (progression, fin, rechargement de la liste).
 - Non testé sur Android TV ni sur un vrai appareil (décodage matériel).
-- Sur téléphone en paysage, la barre de commandes défile horizontalement.
+- Barre de commandes : passe en icônes quand elle ne tient pas en largeur (téléphone) ;
+  non vérifié sur un très petit écran en portrait.
 - Pas de programmation d'enregistrements futurs ; pas de renommage/masquage de chaînes.
 - APK universel (~100 Mo, toutes architectures) ; des APK par ABI réduiraient la taille.

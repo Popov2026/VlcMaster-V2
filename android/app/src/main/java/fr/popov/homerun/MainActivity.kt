@@ -562,6 +562,45 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnSettings).setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
         findViewById<View>(R.id.pipTouch).setOnClickListener { setSound(true) }
         findViewById<View>(R.id.pipTouch).setOnLongClickListener { pipMenu(); true }
+        controls.addOnLayoutChangeListener { _, l, _, r, _, ol, _, or, _ -> if (r - l != or - ol) controls.post { fitControls() } }
+    }
+
+    /** Libellés courts des boutons (barre trop étroite, ex. téléphone en paysage). */
+    private val compactLabels = mapOf(
+        R.id.btnList to "☰", R.id.btnLang to "♫", R.id.btnRec to "●",
+        R.id.btnRecs to "▤", R.id.btnFull to "⛶", R.id.btnSettings to "⚙",
+    )
+    private var compactUi: Boolean? = null
+
+    /** Passe la barre de commandes en mode compact si elle ne tient pas en largeur. */
+    private fun fitControls() {
+        val row = (controls as ViewGroup).getChildAt(0) as ViewGroup
+        val avail = controls.width - controls.paddingLeft - controls.paddingRight
+        if (avail <= 0) return
+        setCompact(false)
+        row.measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+        setCompact(row.measuredWidth > avail)
+    }
+
+    private fun setCompact(c: Boolean) {
+        if (compactUi == c) return
+        compactUi = c
+        val d = resources.displayMetrics.density
+        val row = (controls as ViewGroup).getChildAt(0) as ViewGroup
+        for (i in 0 until row.childCount) {
+            val b = row.getChildAt(i) as? Button ?: continue
+            val short = compactLabels[b.id]
+            if (short != null) {
+                val full = (b.getTag(R.id.controls) as? CharSequence) ?: b.text.also { b.setTag(R.id.controls, it) }
+                b.text = if (c) short else full
+                b.contentDescription = full
+                androidx.appcompat.widget.TooltipCompat.setTooltipText(b, if (c) full else null)
+            }
+            val pad = ((if (c) 9 else 12) * d).toInt()
+            b.setPadding(pad, b.paddingTop, pad, b.paddingBottom)
+        }
+        vol.layoutParams = vol.layoutParams.apply { width = ((if (c) 110 else 150) * d).toInt() }
     }
 
     @SuppressLint("ClickableViewAccessibility")
