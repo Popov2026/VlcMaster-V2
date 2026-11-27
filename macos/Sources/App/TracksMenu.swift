@@ -5,10 +5,11 @@ import AppKit
  * du lecteur qui a le son.  Le choix est mémorisé (Prefs.audioPref / spuPref) et
  * réappliqué sur les autres chaînes.                                (↔ src/tracks.h)
  */
+@MainActor
 enum Tracks {
     struct T { let id: Int; let label: String; let key: String }
 
-    private static func special(_ s: String) -> String? {
+    nonisolated private static func special(_ s: String) -> String? {
         switch s {
         case "qaa", "original audio", "original language": return L("trk_qaa")
         case "qad", "audio description": return L("trk_qad")
