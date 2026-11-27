@@ -5,7 +5,7 @@ import AppKit
  *
  * Fichiers de l'appli (Sources/App) :
  *   AppDelegate.swift       démarrage, menus, fenêtres, sortie
- *   L10n.swift              textes (6 langues, Resources/*.lproj) et réglages (UserDefaults)
+ *   L10n.swift              textes (6 langues, dossiers Resources/xx.lproj) et réglages (UserDefaults)
  *   TVPlayer.swift          un lecteur VLCKit (image principale, encart, enregistrement lu)
  *   MainWindow.swift        lecture, liste, zapping, volume, PIP, bandeau, clavier ↔ src/vlcmaster.c, pip.h
  *   TracksMenu.swift        langues audio / sous-titres                         ↔ src/tracks.h
