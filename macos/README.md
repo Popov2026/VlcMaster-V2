@@ -53,7 +53,9 @@ Raccourcis avec ⌘ dans le menu « Télévision » (⌘G guide, ⌘E enregistre
 
 **GitHub Actions** : `.github/workflows/macos.yml` (runner `macos-15`) lance les tests du cœur contre le faux
 tuner, compile l'appli universelle et publie l'artefact `HomeRunPlayer-macos` (`HomeRunPlayer-<version>-macos.dmg`).
-Lancement manuel possible (« Run workflow ») avec un numéro de version.
+Lancement manuel possible (« Run workflow ») avec un numéro de version. Quand une release est publiée
+sur GitHub, le workflow compile avec la version du tag et joint le `.dmg` à cette release
+(`gh release upload --clobber`) ; il ne crée jamais de release lui-même.
 
 **Sur un Mac** (Xcode 15+ et `brew install xcodegen`), depuis `macos/` :
 
