@@ -26,10 +26,12 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - uses: android-actions/setup-android@v3
-
+      # Le SDK Android est préinstallé sur les machines ubuntu de GitHub ($ANDROID_HOME).
       - name: SDK Android (plateforme 36)
-        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+        run: |
+          SM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SM" --licenses > /dev/null || true
+          "$SM" "platforms;android-36" "build-tools;35.0.0"
 
       - uses: gradle/actions/setup-gradle@v4
 
