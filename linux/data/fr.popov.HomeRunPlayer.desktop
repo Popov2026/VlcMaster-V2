@@ -1,0 +1,21 @@
+[Desktop Entry]
+Type=Application
+Name=HomeRun Player
+GenericName=TV player
+GenericName[fr]=Lecteur TV
+GenericName[es]=Reproductor de TV
+GenericName[de]=TV-Player
+GenericName[it]=Lettore TV
+GenericName[pt]=Leitor de TV
+Comment=Watch and record TV from an HDHomeRun tuner
+Comment[fr]=Regarder et enregistrer la télévision d'un tuner HDHomeRun
+Comment[es]=Ver y grabar la televisión de un sintonizador HDHomeRun
+Comment[de]=Fernsehen von einem HDHomeRun-Tuner ansehen und aufnehmen
+Comment[it]=Guardare e registrare la TV da un sintonizzatore HDHomeRun
+Comment[pt]=Ver e gravar televisão de um sintonizador HDHomeRun
+Exec=homerun-player
+Icon=fr.popov.HomeRunPlayer
+Terminal=false
+Categories=AudioVideo;Video;TV;Player;GTK;
+Keywords=TV;HDHomeRun;DVB;IPTV;tuner;télévision;
+StartupNotify=true

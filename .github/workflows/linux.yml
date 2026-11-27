@@ -1,0 +1,79 @@
+# Compile HomeRun Player pour Linux (dossier linux/), le teste et publie les paquets comme artefact.
+name: Linux
+
+on:
+  push:
+    paths:
+      - "linux/**"
+      - ".github/workflows/linux.yml"
+  pull_request:
+    paths:
+      - "linux/**"
+      - ".github/workflows/linux.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: linux
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dépendances
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            meson ninja-build pkg-config gcc libgtk-4-dev libvlc-dev libcurl4-openssl-dev \
+            vlc-plugin-base xvfb xauth ffmpeg python3
+
+      - name: Table des textes à jour
+        run: |
+          python3 tools/gen_strings.py
+          git diff --exit-code -- src/strings_ids.h src/strings_gen.h
+
+      - name: Version
+        id: ver
+        run: |
+          ver=$(sed -n "s/^  version : '\(.*\)',/\1/p" meson.build)
+          case "$GITHUB_REF" in refs/tags/v*) ver=${GITHUB_REF#refs/tags/v} ;; esac
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+          echo "Version : $ver"
+
+      - name: Compilation
+        run: |
+          meson setup build --prefix=/usr -Dapp_version=${{ steps.ver.outputs.version }}
+          meson compile -C build
+          ./build/homerun-player --version
+
+      - name: Tests du cœur (playlist, guide, JSON, pistes)
+        run: meson test -C build --print-errorlogs
+
+      - name: Essai de l'appli (Xvfb, faux tuner, décodage vidéo)
+        run: sh tests/smoke.sh build/homerun-player "$RUNNER_TEMP/smoke"
+
+      - name: Paquets (.tar.gz, .deb)
+        run: sh packaging/make_dist.sh ${{ steps.ver.outputs.version }} build dist
+
+      - name: Installation du .deb
+        run: |
+          sudo apt-get install -y ./dist/*.deb
+          homerun-player --version
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HomeRunPlayer-linux
+          path: |
+            linux/dist/*.tar.gz
+            linux/dist/*.deb
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-test
+          path: |
+            ${{ runner.temp }}/smoke/*.png
+            ${{ runner.temp }}/smoke/*.log
+          if-no-files-found: ignore
