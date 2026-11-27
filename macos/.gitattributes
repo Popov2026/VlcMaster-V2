@@ -1,0 +1,3 @@
+# Scripts lancés sur macOS : toujours en LF
+*.sh text eol=lf
+*.py text eol=lf

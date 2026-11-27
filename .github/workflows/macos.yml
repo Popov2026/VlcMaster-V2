@@ -1,0 +1,60 @@
+# Compile HomeRun Player pour macOS (dossier macos/) : tests du cœur, appli universelle
+# arm64 + x86_64, .dmg non signé publié comme artefact.
+name: macOS
+
+on:
+  push:
+    paths:
+      - "macos/**"
+      - "res/app.ico"
+      - ".github/workflows/macos.yml"
+  pull_request:
+    paths:
+      - "macos/**"
+      - ".github/workflows/macos.yml"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (ex. 3.7) ; vide = celle de macos/project.yml"
+        required: false
+
+jobs:
+  build:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: macos
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Outils
+        run: |
+          xcodebuild -version
+          swift --version
+          command -v xcodegen || brew install xcodegen
+          xcodegen --version
+
+      # Tests du cœur (playlist, guide, mises à jour, noms de fichiers, pistes) ; le scan
+      # et le guide sont testés contre le faux tuner local, jamais contre un vrai.
+      - name: Tests (faux tuner)
+        run: |
+          python3 tools/fake_tuner.py 8090 > fake_tuner.log 2>&1 &
+          sleep 2
+          FAKE_TUNER=http://127.0.0.1:8090 swift test
+          cat fake_tuner.log
+
+      - name: Compilation et .dmg
+        run: |
+          chmod +x build.sh tools/*.sh
+          ./build.sh "${{ github.event.inputs.version }}"
+
+      - name: Journal de compilation
+        if: failure()
+        run: |
+          [ -f build/xcodebuild.log ] && grep -E "error|warning" build/xcodebuild.log | head -200 || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HomeRunPlayer-macos
+          path: macos/dist/*.dmg
+          if-no-files-found: error
