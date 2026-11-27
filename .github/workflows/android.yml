@@ -11,6 +11,12 @@ on:
       - "android/**"
       - ".github/workflows/android.yml"
   workflow_dispatch:
+  # Release publiée sur GitHub : l'APK (à la version de la release) y est joint.
+  release:
+    types: [published]
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -38,11 +44,19 @@ jobs:
       - name: Compilation de l'APK
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --console=plain
+          if [ "${{ github.event_name }}" = "release" ]; then
+            ./gradlew assembleRelease --console=plain -PappVersion="${{ github.event.release.tag_name }}"
+          else
+            ./gradlew assembleRelease --console=plain
+          fi
 
       - name: Nom du fichier
         run: |
-          ver=$(grep -oP 'val appVersion = "\K[^"]+' app/build.gradle.kts)
+          if [ "${{ github.event_name }}" = "release" ]; then
+            ver="${{ github.event.release.tag_name }}"; ver="${ver#v}"
+          else
+            ver=$(grep -oP '\?: "\K[0-9.]+(?="$)' app/build.gradle.kts)
+          fi
           mkdir -p dist
           cp app/build/outputs/apk/release/app-release.apk "dist/HomeRunPlayer-$ver-android.apk"
           ls -l dist
@@ -52,3 +66,10 @@ jobs:
           name: HomeRunPlayer-android
           path: android/dist/*.apk
           if-no-files-found: error
+
+      # Seulement pour une release publiée (jamais créée par ce workflow).
+      - name: Joindre l'APK à la release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" dist/*.apk --clobber -R "${{ github.repository }}"

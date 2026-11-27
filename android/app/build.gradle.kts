@@ -4,7 +4,11 @@ plugins {
 }
 
 // Version de l'appli : comparée aux releases GitHub (tag « vX.Y »).
-val appVersion = "3.6"
+// Version : celle de la release GitHub (-PappVersion=3.7 dans le workflow), sinon celle-ci.
+val appVersion = (findProperty("appVersion") as String?)?.removePrefix("v") ?: "3.6"
+// 3.6 → 30600, 3.6.2 → 30602 (toujours croissant).
+val appVersionCode = appVersion.split('.').map { it.filter(Char::isDigit).toIntOrNull() ?: 0 }
+    .let { (it.getOrElse(0) { 0 } * 10000) + (it.getOrElse(1) { 0 } * 100) + it.getOrElse(2) { 0 } }
 
 android {
     namespace = "fr.popov.homerun"
@@ -14,7 +18,7 @@ android {
         applicationId = "fr.popov.homerun"
         minSdk = 21
         targetSdk = 35
-        versionCode = 36
+        versionCode = appVersionCode
         versionName = appVersion
     }
 
