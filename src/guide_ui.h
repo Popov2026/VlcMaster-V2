@@ -6,9 +6,14 @@
  * Entrée = regarder la chaîne. Molette = chaînes, Maj+molette = heures.
  */
 
-enum { IDG_BACK = 700, IDG_NOW, IDG_FWD, IDG_WATCH, IDG_REFRESH, IDG_INFO, IDG_DET };
+enum { IDG_BACK = 700, IDG_NOW, IDG_FWD, IDG_WATCH, IDG_REFRESH, IDG_INFO, IDG_DET, IDG_SCHED, IDG_MWATCH, IDG_MREC };
 
-static HWND      g_gbtn[5], g_ginfo, g_gdet;
+/* sched.h (enregistrements programmés) */
+static int  SchedFind(unsigned long long key, long long st);
+static void SchedToggle(int ci, const Prog *p);
+static void SchedGridMenu(int x, int y, int ci, const Prog *p);
+
+static HWND      g_gbtn[6], g_ginfo, g_gdet;
 static HFONT     g_gfBold;
 static long long g_gt0, g_gtmin, g_gtmax;
 static int       g_gtop;
@@ -81,6 +86,14 @@ static void GridDetails(void)
 }
 
 /* Sélectionne le programme en cours de la chaîne ci. */
+/* Émission sélectionnée dans la grille (ou NULL). */
+static const Prog *GridSelProg(void)
+{
+    const GuideCh *g = GuideForCh(g_selCh);
+    if (g) for (int i = 0; i < g->n; i++) if (g->p[i].st == g_selSt) return &g->p[i];
+    return NULL;
+}
+
 static void GridSelectNow(int ci)
 {
     g_selCh = ci; g_selSt = 0;
@@ -157,6 +170,12 @@ static void GridPaint(HDC dc, int W, int H)
             any = 1;
             int sel = (ci == g_selCh && p->st == g_selSt), cur = (p->st <= now && now < p->en);
             FillR(dc, x0 + 1, y + 1, x1 - 1, y + rh - 2, sel ? cSel : cur ? cNowP : p->en <= now ? cPast : cProg);
+            int recd = SchedFind(g_ch[ci].key, p->st) >= 0 || (cur && RecForCh(ci) >= 0);
+            if (recd) {   /* programmé (ou en cours d'enregistrement) : cadre et pastille rouges */
+                COLORREF rc_ = RGB(235, 60, 60);
+                FillR(dc, x0 + 1, y + 1, x1 - 1, y + 3, rc_); FillR(dc, x0 + 1, y + rh - 4, x1 - 1, y + rh - 2, rc_);
+                FillR(dc, x0 + 1, y + 1, x0 + 3, y + rh - 2, rc_); FillR(dc, x1 - 3, y + 1, x1 - 1, y + rh - 2, rc_);
+            }
             if (cur) {   /* avancement du programme en cours */
                 int px = x0 + 1 + (int)((long long)(x1 - x0 - 2) * (now - p->st) / (p->en - p->st));
                 FillR(dc, x0 + 1, y + rh - S(4), px, y + rh - 2, RGB(64, 170, 255));
@@ -165,6 +184,13 @@ static void GridPaint(HDC dc, int W, int H)
                 RECT tr = { x0 + S(7), y + S(4), x1 - S(5), y + S(4) + rh / 2 };
                 SelectObject(dc, g_gfBold);
                 SetTextColor(dc, p->en <= now && !sel ? cSub : cTxt);
+                if (recd) {
+                    HBRUSH rb = CreateSolidBrush(RGB(235, 60, 60)); HGDIOBJ ob = SelectObject(dc, rb); HGDIOBJ op = SelectObject(dc, GetStockObject(NULL_PEN));
+                    int d = S(9), cy = tr.top + (tr.bottom - tr.top) / 2;
+                    Ellipse(dc, tr.left, cy - d / 2, tr.left + d + 1, cy + d / 2 + 1);
+                    SelectObject(dc, op); SelectObject(dc, ob); DeleteObject(rb);
+                    tr.left += d + S(5);
+                }
                 DrawTextW(dc, p->title ? p->title : L"—", -1, &tr, DT_LEFT | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
                 wchar_t a[8], b[8], tm[48]; FmtHM(p->st, a); FmtHM(p->en, b);
                 swprintf(tm, 48, L"%ls – %ls", a, b);
@@ -296,6 +322,16 @@ static LRESULT CALLBACK GridProc(HWND h, UINT msg, WPARAM w, LPARAM l)
             else GridSelectNow(ci);
         }
         return 0; }
+    case WM_RBUTTONUP: {   /* clic droit sur une émission : regarder, programmer / annuler */
+        SetFocus(h);
+        int ci; long long st;
+        if (GridHit(GET_X_LPARAM(l), GET_Y_LPARAM(l), &ci, &st) && ci >= 0 && st) {
+            g_selCh = ci; g_selSt = st; GridDetails(); InvalidateRect(h, NULL, FALSE);
+            POINT pt = { GET_X_LPARAM(l), GET_Y_LPARAM(l) }; ClientToScreen(h, &pt);
+            SchedGridMenu(pt.x, pt.y, ci, GridSelProg());
+            InvalidateRect(h, NULL, FALSE);
+        }
+        return 0; }
     case WM_LBUTTONDBLCLK: {
         int ci; long long st;
         if (GridHit(GET_X_LPARAM(l), GET_Y_LPARAM(l), &ci, &st) && ci >= 0) PlayChannel(ci);
@@ -311,6 +347,7 @@ static LRESULT CALLBACK GridProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         case VK_PRIOR: g_gtop -= 8; GridScroll(); return 0;
         case VK_NEXT: g_gtop += 8; GridScroll(); return 0;
         case VK_HOME: GridGoNow(); return 0;
+        case 'R': if (g_selCh >= 0) { SchedToggle(g_selCh, GridSelProg()); InvalidateRect(h, NULL, FALSE); } return 0;
         case VK_RETURN: if (g_selCh >= 0) { PlayActive(g_selCh); InvalidateRect(h, NULL, FALSE); } return 0;
         case VK_ESCAPE: DestroyWindow(g_gw); return 0;
         }
@@ -323,12 +360,14 @@ static LRESULT CALLBACK GridProc(HWND h, UINT msg, WPARAM w, LPARAM l)
 static void GuideLayout(int W, int H)
 {
     int m = S(10), bh = S(30), detH = S(118), x = m;
-    static const int bw[5] = { 92, 110, 92, 120, 110 };
-    HDWP d = BeginDeferWindowPos(9);
-    for (int i = 0; i < 5; i++) {
+    static const int order[6] = { 0, 1, 2, 3, 5, 4 };          /* « Programmer » après « Regarder » */
+    static const int bw[6] = { 92, 110, 92, 120, 110, 150 };
+    HDWP d = BeginDeferWindowPos(10);
+    for (int k = 0; k < 6; k++) {
+        int i = order[k];
         d = DeferWindowPos(d, g_gbtn[i], NULL, x, m, S(bw[i]), bh, SWP_NOZORDER | SWP_NOACTIVATE);
         x += S(bw[i]) + S(6);
-        if (i == 2) x += S(12);
+        if (k == 2) x += S(12);
     }
     d = DeferWindowPos(d, g_ginfo, NULL, x + S(10), m, W - x - S(10) - m, bh, SWP_NOZORDER | SWP_NOACTIVATE);
     int gy = m + bh + S(8);
@@ -353,6 +392,7 @@ static LRESULT CALLBACK GuideWinProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         g_gw = h;
         static const wchar_t *lbl[5] = { L"◀  3 h", L"Maintenant", L"3 h  ▶", L"▶  Regarder", L"Actualiser" };
         for (int i = 0; i < 5; i++) g_gbtn[i] = Mk(h, WC_BUTTONW, TR(lbl[i]), BS_PUSHBUTTON, 0, IDG_BACK + i);
+        g_gbtn[5] = Mk(h, WC_BUTTONW, TR(L"\u25CF  Programmer  (R)"), BS_PUSHBUTTON, 0, IDG_SCHED);
         g_ginfo = Mk(h, WC_STATICW, g_gdInfo, SS_LEFT | SS_CENTERIMAGE | SS_ENDELLIPSIS | SS_NOPREFIX, 0, IDG_INFO);
         g_grid = CreateWindowExW(0, L"VlcMasterGrid", NULL, WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_HSCROLL | WS_TABSTOP,
                                  0, 0, 10, 10, h, NULL, g_hi, NULL);
@@ -374,6 +414,7 @@ static LRESULT CALLBACK GuideWinProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         case IDG_FWD: g_gt0 += 3 * 3600; GridScroll(); break;
         case IDG_WATCH: if (g_selCh >= 0) PlayActive(g_selCh); InvalidateRect(g_grid, NULL, FALSE); break;
         case IDG_REFRESH: GuideLoad(); break;
+        case IDG_SCHED: if (g_selCh >= 0) SchedToggle(g_selCh, GridSelProg()); InvalidateRect(g_grid, NULL, FALSE); break;
         default: return 0;
         }
         SetFocus(g_grid);

@@ -54,6 +54,13 @@ plus besoin de lancer un VLC externe ni d'activer son interface HTTP.
   - par défaut jusqu'à la fin de l'émission en cours (selon le guide, + marge réglable), ou 30 min / 1 h / 2 h / 3 h / sans limite via la flèche du bouton ;
   - on peut enregistrer une chaîne et en regarder une autre, ou plusieurs chaînes à la fois (chaque flux occupe un tuner) ; clic droit sur une chaîne → *Enregistrer* ;
   - témoins : point rouge dans la liste, « ● REC » dans la barre d'état et le HUD ; reconnexion automatique si le flux est coupé.
+- **Enregistrements programmés depuis le guide TV** : clic droit sur une émission › *Programmer l'enregistrement*, touche R
+  ou bouton ● Programmer. L'émission est encadrée en rouge dans la grille et apparaît en tête de la fenêtre Enregistrements
+  (Supprimer = annuler). L'enregistrement démarre 1 min avant et s'arrête à la fin + la marge ; une émission en cours est
+  enregistrée tout de suite.
+  ⚠ **HomeRun Player doit rester ouvert** (il peut être réduit) **et l'ordinateur allumé** à l'heure prévue : rien ne se fait
+  appli fermée. La mise en veille automatique est bloquée tant qu'une programmation attend ; une émission manquée est signalée
+  au démarrage, et la fermeture de l'appli demande confirmation.
 - **Fenêtre Enregistrements** (bouton ▤ ou touche E) : émission, chaîne, date, durée, taille, état (en cours, en lecture) ;
   - lecture dans le lecteur principal, même pendant l'enregistrement ; barre de position, pause, −10 s / +30 s (← → aussi dans la fenêtre principale), *Retour au direct* ;
   - suppression vers la Corbeille, ouverture du dossier ;

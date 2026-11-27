@@ -17,6 +17,7 @@
  *   guide_data.h  guide TV : mini-lecteur JSON, téléchargement (SiliconDust).
  *   guide_ui.h    fenêtre Guide TV (grille horaire).
  *   mpc.h         moteurs MPC-HC / MPC-BE (API /slave) + interface commune Eng*().
+ *   sched.h       enregistrements programmés depuis le guide (l'appli doit rester ouverte).
  *   record.h      enregistrement (copie du flux en .ts) + fenêtre Enregistrements.
  *   pip.h         image dans l'image (second lecteur libVLC).
  *   tracks.h      langues audio et sous-titres.
@@ -72,7 +73,7 @@
 
 #define APP_NAME L"HomeRun Player"
 #ifndef APP_VER                 /* version du player (comparée aux releases GitHub) */
-#define APP_VER  L"3.6.2"
+#define APP_VER  L"3.7"
 #endif
 #define INI_NAME L"HomeRunPlayer"
 
@@ -80,7 +81,7 @@
 /* Identifiants                                                        */
 /* ------------------------------------------------------------------ */
 enum { WM_APP_VLCREADY = WM_APP + 1, WM_APP_VLCEVENT, WM_APP_PLAYLIST, WM_APP_WORKERDONE, WM_APP_GUIDE, WM_APP_REC, WM_APP_PIPEVENT, WM_APP_TUNER, WM_APP_SCAN, WM_APP_UPD };
-enum { TMR_FS = 1, TMR_DIGITS, TMR_RETRY, TMR_REPLAY, TMR_FORCEQUIT, TMR_FLASH, TMR_SIZE, TMR_HUD, TMR_GUIDE, TMR_MINUTE, TMR_REC, TMR_MPC, TMR_PIPRETRY, TMR_TRACKS, TMR_UPDCHECK };
+enum { TMR_FS = 1, TMR_DIGITS, TMR_RETRY, TMR_REPLAY, TMR_FORCEQUIT, TMR_FLASH, TMR_SIZE, TMR_HUD, TMR_GUIDE, TMR_MINUTE, TMR_REC, TMR_MPC, TMR_PIPRETRY, TMR_TRACKS, TMR_UPDCHECK, TMR_SCHED };
 
 enum {
     IDC_HOST = 100, IDC_LIST, IDC_PREV, IDC_NEXT, IDC_PAUSE, IDC_STOP, IDC_VOL,
@@ -1617,6 +1618,7 @@ static void OnVlcEvent(int type, int val)
 }
 
 #include "guide_ui.h"
+#include "sched.h"
 #include "record.h"
 #include "pip.h"
 #include "tracks.h"
@@ -2212,6 +2214,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         case TMR_GUIDE: GuideLoad(); break;
         case TMR_REC: RecTick(); break;
         case TMR_MPC: MpcTick(); break;
+        case TMR_SCHED: SchedTick(); break;
         case TMR_UPDCHECK:
             SetTimer(h, TMR_UPDCHECK, 12u * 3600u * 1000u, NULL);   /* puis toutes les 12 h */
             if (C.updCheck) UpdCheck(0);
@@ -2270,6 +2273,11 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         return 0;
 
     case WM_CLOSE: {
+        if (g_nsch) {   /* programmations en attente : rien ne se fera si l'appli est fermée */
+            wchar_t q[400];
+            swprintf(q, 400, TR(L"%d enregistrement(s) programmé(s) ne se feront que si HomeRun Player est ouvert à l'heure prévue.\n\nQuitter quand même ? (les programmations sont gardées pour le prochain lancement)"), g_nsch);
+            if (MessageBoxW(h, q, APP_NAME, MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2) != IDYES) return 0;
+        }
         int nrec = RecCount();
         if (nrec) {
             wchar_t q[200];
@@ -3107,6 +3115,8 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE prev, PWSTR cmd, int show)
     if (g_hud) SetLayeredWindowAttributes(g_hud, 0, 225, LWA_ALPHA);
     PipCreate(h);                     /* avant libVLC : le second lecteur y dessine */
     BannerCreate(h);
+    SchedLoad();
+    SetTimer(h, TMR_SCHED, 15000, NULL);      /* enregistrements programmés */
     SetTimer(h, TMR_UPDCHECK, 4000, NULL);   /* nouvelle version ? (si activé) */
     ApplyTopmost();
 

@@ -30,6 +30,7 @@ typedef struct {
     ULONGLONG size; long long secs; FILETIME ct; int rec;
 } RFile;
 static RFile *g_rf; static int g_nrf;
+static int    g_rsN;                     /* lignes de programmations en tête de la liste */
 
 enum { IDR_PLAY = 800, IDR_STOPREC, IDR_DEL, IDR_FOLDER, IDR_REFRESH, IDR_INFO, IDR_LV,
        IDR_PAUSE, IDR_BACK, IDR_FWD, IDR_SEEK, IDR_TIME, IDR_LIVE };
@@ -213,8 +214,9 @@ static void RecChanged(void)
     UpdateStatus();
 }
 
-/* endAt : epoch de fin, 0 = sans limite, -1 = fin de l'émission en cours (si connue). */
-static void RecStart(int ch, long long endAt)
+/* endAt : epoch de fin, 0 = sans limite, -1 = fin de l'émission en cours (si connue).
+   title : titre du fichier (programmation), sinon l'émission en cours d'après le guide. */
+static void RecStartEx(int ch, long long endAt, const wchar_t *title)
 {
     if (ch < 0 || ch >= g_nch) { Flash(TR(L"Choisissez d'abord une chaîne à enregistrer")); return; }
     if (RecForCh(ch) >= 0) { Flash(TR(L"Cette chaîne est déjà en cours d'enregistrement")); return; }
@@ -243,7 +245,8 @@ static void RecStart(int ch, long long endAt)
     r->key = c->key;
     memcpy(r->url, c->url, sizeof r->url);
     wcsncpy(r->name, c->name, 127);
-    if (pr && pr->title) wcsncpy(r->title, pr->title, 199);
+    if (title && title[0]) wcsncpy(r->title, title, 199);
+    else if (pr && pr->title) wcsncpy(r->title, pr->title, 199);
     r->start = now; r->endAt = endAt;
 
     SYSTEMTIME st; GetLocalTime(&st);
@@ -270,6 +273,14 @@ static void RecStart(int ch, long long endAt)
 }
 
 /* Demande l'arrêt d'un enregistrement (interrompt la lecture réseau en cours). */
+static void RecStart(int ch, long long endAt) { RecStartEx(ch, endAt, NULL); }
+
+/* Prolonge un enregistrement en cours (programmation qui le chevauche). */
+static void RecExtend(int ri, long long endAt)
+{
+    if (ri >= 0 && ri < MAXREC && g_rec[ri].used && g_rec[ri].endAt && g_rec[ri].endAt < endAt) g_rec[ri].endAt = endAt;
+}
+
 static void RecStop(int i)
 {
     if (i < 0 || i >= MAXREC || !g_rec[i].used) return;
@@ -309,7 +320,7 @@ static void RecTick(void)
         any = 1;
         if (g_rec[i].endAt && now >= g_rec[i].endAt && !g_rec[i].stop) RecStop(i);
     }
-    if (!any) KillTimer(g_main, TMR_REC);
+    if (!any) { KillTimer(g_main, TMR_REC); SchedPower(); }
     if (g_rw) RecRowsUpdate();
     UpdateStatus();
 }
@@ -485,9 +496,9 @@ static void RecRow(int i)
     } else if (g_fileMode && !_wcsicmp(g_file, f->path)) wcscpy(stt, g_paused ? TR(L"‖ En pause") : TR(L"▶ En lecture"));
     if (secs >= 0) FmtDur(secs, du, 32);
     FmtSize(size, sz, 32);
-    ListView_SetItemText(g_rlv, i, 3, du);
-    ListView_SetItemText(g_rlv, i, 4, sz);
-    ListView_SetItemText(g_rlv, i, 5, stt);
+    ListView_SetItemText(g_rlv, i + g_rsN, 3, du);
+    ListView_SetItemText(g_rlv, i + g_rsN, 4, sz);
+    ListView_SetItemText(g_rlv, i + g_rsN, 5, stt);
 }
 
 /* Met à jour toutes les lignes (enregistrements en cours, lecture). */
@@ -501,7 +512,15 @@ static void RecRowsUpdate(void)
 static int RecSel(void)
 {
     int s = g_rlv ? ListView_GetNextItem(g_rlv, -1, LVNI_SELECTED) : -1;
+    s -= g_rsN;
     return (s >= 0 && s < g_nrf) ? s : -1;
+}
+
+/* Programmation sélectionnée dans la liste (lignes du haut), ou -1. */
+static int RecSchedSel(void)
+{
+    int s = g_rlv ? ListView_GetNextItem(g_rlv, -1, LVNI_SELECTED) : -1;
+    return (s >= 0 && s < g_rsN && s < g_nsch) ? s : -1;
 }
 
 /* Remplit la liste des enregistrements et la ligne d'information (total, espace libre). */
@@ -516,18 +535,31 @@ static void RecFill(void)
     ListView_DeleteAllItems(g_rlv);
     ULONGLONG tot = 0;
     int sel = -1;
-    for (int i = 0; i < g_nrf; i++) {
+    g_rsN = g_nsch;                         /* programmations à venir, en tête */
+    for (int i = 0; i < g_rsN; i++) {
         LVITEMW it; memset(&it, 0, sizeof it);
         it.mask = LVIF_TEXT; it.iItem = i;
+        it.pszText = g_sch[i].title[0] ? g_sch[i].title : (LPWSTR)TR(L"(sans titre)");
+        ListView_InsertItem(g_rlv, &it);
+        wchar_t when[48], du[32]; SchedDay(g_sch[i].st, when, 48); FmtDur(g_sch[i].en - g_sch[i].st, du, 32);
+        ListView_SetItemText(g_rlv, i, 1, g_sch[i].ch);
+        ListView_SetItemText(g_rlv, i, 2, when);
+        ListView_SetItemText(g_rlv, i, 3, du);
+        ListView_SetItemText(g_rlv, i, 5, (LPWSTR)TR(L"\u23F0 Programmé"));
+    }
+    for (int i = 0; i < g_nrf; i++) {
+        LVITEMW it; memset(&it, 0, sizeof it);
+        it.mask = LVIF_TEXT; it.iItem = i + g_rsN;
         it.pszText = g_rf[i].title[0] ? g_rf[i].title : (LPWSTR)TR(L"(sans titre)");
         ListView_InsertItem(g_rlv, &it);
-        ListView_SetItemText(g_rlv, i, 1, g_rf[i].ch);
-        ListView_SetItemText(g_rlv, i, 2, g_rf[i].date);
+        ListView_SetItemText(g_rlv, i + g_rsN, 1, g_rf[i].ch);
+        ListView_SetItemText(g_rlv, i + g_rsN, 2, g_rf[i].date);
         RecRow(i);
         tot += g_rf[i].size;
         if (keep[0] && !_wcsicmp(keep, g_rf[i].path)) sel = i;
     }
-    if (sel < 0 && g_nrf) sel = 0;
+    if (sel >= 0) sel += g_rsN;
+    if (sel < 0 && (g_nrf || g_rsN)) sel = 0;
     if (sel >= 0) ListView_SetItemState(g_rlv, sel, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
     SendMessageW(g_rlv, WM_SETREDRAW, TRUE, 0);
 
@@ -539,7 +571,11 @@ static void RecFill(void)
     if (g_nrf) swprintf(t, MAX_PATH + 160, TR(L"%d enregistrement%ls · %ls · %ls libres     %ls"),
                         g_nrf, g_nrf > 1 ? TR(L"s") : L"", a, b, dir);
     else swprintf(t, MAX_PATH + 160, TR(L"Aucun enregistrement pour l'instant (bouton ● Enregistrer ou touche R)     %ls"), dir);
-    SetWindowTextW(g_rinfo, t);
+    if (g_nsch) {                           /* rappel : l'appli doit rester ouverte */
+        wchar_t w[MAX_PATH + 360];
+        swprintf(w, MAX_PATH + 360, TR(L"%d programmé(s) : HomeRun Player doit rester ouvert à l'heure prévue  ·  %ls"), g_nsch, t);
+        SetWindowTextW(g_rinfo, w);
+    } else SetWindowTextW(g_rinfo, t);
 }
 
 /* Lit l'enregistrement sélectionné dans la fenêtre principale. */
@@ -556,6 +592,13 @@ static void RecPlaySel(void)
 /* Envoie l'enregistrement sélectionné à la Corbeille (après confirmation). */
 static void RecDeleteSel(void)
 {
+    int sc = RecSchedSel();
+    if (sc >= 0) {                          /* ligne de programmation : annulation */
+        wchar_t q[500], when[48]; SchedDay(g_sch[sc].st, when, 48);
+        swprintf(q, 500, TR(L"Annuler l'enregistrement programmé ?\n\n%ls — %ls\n%ls"), g_sch[sc].ch, g_sch[sc].title, when);
+        if (MessageBoxW(g_rw, q, APP_NAME, MB_YESNO | MB_ICONQUESTION) == IDYES) { SchedRemove(sc); SchedChanged(); }
+        return;
+    }
     int s = RecSel();
     if (s < 0) return;
     RFile *f = &g_rf[s];

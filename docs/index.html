@@ -124,6 +124,9 @@
   <li><strong>Recording</strong>: <span class="rec">●</span> Record saves the channel until the end of the programme (from the guide, plus
     a margin), or for 30 min, 1, 2 or 3 hours, or without limit. The tuner's stream is saved as is (<code>.ts</code>, no quality loss).
     Record one channel while watching another, or several channels at once (one tuner each).</li>
+  <li><strong>Scheduled recordings from the TV guide</strong>: right-click a programme (or press <kbd>R</kbd>) to schedule it; it is
+    framed in red in the guide and listed in the recordings window. <strong>HomeRun Player must stay open</strong> (it can be minimised)
+    and the computer switched on at recording time.</li>
   <li><strong>Recordings window</strong>: programme, channel, date, duration, size and status; play back in the main window with a position
     bar, pause, back 10 s and forward 30 s, back to live; delete to the Recycle Bin.</li>
   <li><strong>On-screen display (HUD)</strong>: channel, programme, time, state and resolution, volume, <span class="rec">● REC</span>;
@@ -188,6 +191,15 @@
 <p class="note">If Windows' <em>Controlled folder access</em> (ransomware protection) blocks the Videos folder, HomeRun Player says so and
   records in an allowed folder instead (<code>Enregistrements</code> next to the program). You can allow HomeRun Player in Windows Security or
   choose another folder in Settings.</p>
+
+<h3>Scheduling recordings</h3>
+<p>In the TV guide, right-click a programme and choose <strong>Schedule the recording</strong>, or select it and press <kbd>R</kbd> (or the
+  <strong>● Schedule</strong> button). The programme gets a red frame and dot, and appears at the top of the recordings window with the status
+  ⏰ Scheduled; select it and press <strong>Delete</strong> to cancel. Recording starts one minute early and stops at the end of the programme
+  plus your margin. A programme already on air is recorded straight away.</p>
+<p class="note"><strong>HomeRun Player must stay open</strong> (minimised is fine) and the computer on at recording time — nothing runs while
+  the application is closed. While a recording is scheduled, Windows' automatic sleep is blocked; a programme missed because the application
+  was closed is reported at the next start, and quitting asks for confirmation.</p>
 
 <h3>Tuner and updates</h3>
 <p><strong>⚙ Settings › Source</strong> shows your HDHomeRun (model, tuners, firmware) and tells you when SiliconDust offers a firmware
