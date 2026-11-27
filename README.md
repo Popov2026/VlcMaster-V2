@@ -11,6 +11,13 @@ plus besoin de lancer un VLC externe ni d'activer son interface HTTP.
 
 📺 HomeRun Player 3 — regarder, consulter le guide, enregistrer
 
+## 💻 Autres systèmes
+
+Depuis la 3.8, chaque release contient aussi des versions natives pour **Linux** (GTK + libVLC, paquet `.deb` et archive
+`.tar.gz`, dossier `linux/`), **macOS** (Swift/Cocoa + VLCKit, `.dmg` universel non signé, dossier `macos/`) et **Android**
+(Kotlin + libVLC, `.apk`, dossier `android/`). Elles sont compilées et jointes à la release automatiquement par GitHub Actions ;
+la page du projet propose un bouton de téléchargement par système.
+
 ## ✨ Caractéristiques
 
 - **Vidéo intégrée** : libVLC dessine l'image dans la fenêtre (Direct3D 11, décodage matériel).

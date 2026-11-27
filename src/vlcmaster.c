@@ -73,7 +73,7 @@
 
 #define APP_NAME L"HomeRun Player"
 #ifndef APP_VER                 /* version du player (comparée aux releases GitHub) */
-#define APP_VER  L"3.7"
+#define APP_VER  L"3.8"
 #endif
 #define INI_NAME L"HomeRunPlayer"
 
