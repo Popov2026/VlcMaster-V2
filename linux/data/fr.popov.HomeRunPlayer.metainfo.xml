@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>fr.popov.HomeRunPlayer</id>
+  <name>HomeRun Player</name>
+  <summary>Watch and record TV from an HDHomeRun tuner</summary>
+  <summary xml:lang="fr">Regarder et enregistrer la télévision d'un tuner HDHomeRun</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <launchable type="desktop-id">fr.popov.HomeRunPlayer.desktop</launchable>
+  <description>
+    <p>TV player for HDHomeRun tuners: channel list, zapping, TV guide, audio and subtitle
+      languages, recordings, picture-in-picture, tuner information and channel scan.</p>
+  </description>
+  <url type="homepage">https://github.com/Popov2026/VlcMaster-V2</url>
+  <content_rating type="oars-1.1"/>
+</component>

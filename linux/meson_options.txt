@@ -1,0 +1,2 @@
+option('app_version', type : 'string', value : '',
+  description : 'Version affichée et comparée aux releases GitHub (par défaut : celle du projet)')
