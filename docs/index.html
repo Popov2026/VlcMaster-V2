@@ -62,7 +62,7 @@
     <img src="img/icon.png" alt="">
     <h1>HomeRun Player</h1>
   </div>
-  <p class="lead">A light TV player for <strong>HDHomeRun</strong> tuners, for Windows and Android (Linux and macOS coming): live TV in its own window,
+  <p class="lead">A light TV player for <strong>HDHomeRun</strong> tuners, for Windows, Linux, macOS and Android: live TV in its own window,
     a TV guide, one-click recording, an on-screen display, a thin-border mode, and a choice of
     <strong>VLC</strong>, <strong>MPC-HC</strong> or <strong>MPC-BE</strong> to play the picture.</p>
   <div class="buttons">
@@ -73,9 +73,10 @@
     <a class="btn" href="https://github.com/Popov2026/VlcMaster-V2">Source code</a>
     <a class="btn" href="https://github.com/Popov2026/VlcMaster-V2/issues">Report a problem</a>
   </div>
-  <p class="note">You need an HDHomeRun tuner (or any M3U playlist of TV streams) and
-    <strong>VLC 3.x 64-bit</strong>, or MPC-HC / MPC-BE 64-bit if you prefer them. Nothing else to install:
-    the program is a single file of about 400 KB.</p>
+  <p class="note">You need an HDHomeRun tuner (or any M3U playlist of TV streams). On Windows, also
+    <strong>VLC 3.x 64-bit</strong>, or MPC-HC / MPC-BE 64-bit if you prefer them; the program is a single file of about 500 KB.
+    The Linux package installs VLC's libraries itself, and the macOS and Android versions include VLC.
+    <a href="#download">How to install each version</a>.</p>
 </header>
 
 <figure class="hero">
@@ -86,6 +87,12 @@
 </figure>
 
 <div class="shots">
+  <figure>
+    <a href="img/pip.jpg"><img src="img/pip.jpg" width="1384" height="720" loading="lazy"
+         alt="Picture-in-picture: a second channel in an inset with an orange frame in the bottom-left corner of the main picture; the channel list marks the main channel TV and the inset channel PIP with a note symbol"></a>
+    <figcaption>Picture-in-picture: a second channel in the inset. The orange frame and ♪ PIP show which picture you hear;
+      the list marks the main channel (TV) and the inset (PIP).</figcaption>
+  </figure>
   <figure>
     <a href="img/guide.jpg"><img src="img/guide.jpg" width="1286" height="753" loading="lazy"
          alt="TV guide window: a time grid of programmes for each channel, with a red line for now and the details of the selected programme"></a>
@@ -157,7 +164,7 @@
     <code>.ini</code> file next to it.</li>
 </ul>
 
-<h2>Download and install</h2>
+<h2 id="download">Download and install</h2>
 <div class="buttons">
   <a class="btn dl" data-os="windows" href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">Windows</a>
   <a class="btn dl" data-os="android" href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">Android</a>
@@ -165,9 +172,11 @@
   <a class="btn dl" data-os="macos" href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">macOS</a>
 </div>
 <p>Every button downloads the file for that system from the <a href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">latest release</a>.
-  Android: open the <code>.apk</code> on the phone, tablet or Android TV and allow installing from this source
-  (Android 5.0 or later; VLC is built in). Linux: the button gets the <code>.deb</code> package (Debian, Ubuntu, Mint…);
-  a <code>.tar.gz</code> archive for other distributions is on the release page.</p>
+  All four versions talk to the same HDHomeRun: at first start, enter your tuner's playlist address
+  (<code>http://&lt;tuner IP&gt;/lineup.m3u</code>) in <strong>⚙ Settings</strong>.</p>
+<p class="note">The Windows version is the reference and the one described on this page. The Linux, macOS and Android versions are new
+  (3.8): they have the same functions — guide, recording, languages, picture-in-picture, tuner tools, updates — but their own
+  keyboard shortcuts (press <kbd>F1</kbd> or <kbd>?</kbd> on Linux, see the <em>Television</em> menu on macOS).</p>
 <h3>Windows</h3>
 <ol>
   <li>Install <a href="https://www.videolan.org/vlc/">VLC 3.x 64-bit</a> if you do not have it (or MPC-HC / MPC-BE 64-bit).</li>
@@ -178,6 +187,52 @@
 </ol>
 <p>Each release lists the SHA-256 checksum of <code>HomeRunPlayer.exe</code>. Settings are saved in <code>HomeRunPlayer.ini</code> next to the
   program (or in <code>%APPDATA%\HomeRunPlayer</code> if that folder is read-only).</p>
+
+<h3>Linux</h3>
+<p>For Debian 13, Ubuntu 24.04, Linux Mint 22 or newer (GTK 4.14 or later), 64-bit PC.</p>
+<ol>
+  <li>Download <code>HomeRunPlayer-X.Y-linux-amd64.deb</code> with the <strong>Linux</strong> button.</li>
+  <li>Install it from a terminal in your Downloads folder — this also installs VLC's libraries if needed:
+    <pre>sudo apt install ./HomeRunPlayer-*-linux-amd64.deb</pre>
+    (or double-click the file to open it in your software centre).</li>
+  <li>Start <strong>HomeRun Player</strong> from the applications menu.</li>
+</ol>
+<p>Other distributions: take <code>HomeRunPlayer-X.Y-linux-x86_64.tar.gz</code> from the release page, install GTK 4, libVLC and
+  libcurl (Fedora: <code>gtk4 vlc-libs libcurl</code> with RPM Fusion; Arch: <code>gtk4 vlc curl</code>), then:</p>
+<pre>tar xzf HomeRunPlayer-*-linux-x86_64.tar.gz
+./HomeRunPlayer-*-linux-x86_64/install.sh</pre>
+<p>It installs in <code>~/.local</code> (no administrator rights needed). Settings are in <code>~/.config/homerun-player/</code>,
+  recordings in <code>~/Videos/HomeRun</code>. Remove it with <code>sudo apt remove homerun-player</code>.</p>
+
+<h3>macOS</h3>
+<p>macOS 11 Big Sur or later, Apple Silicon and Intel Macs (one universal app). VLC is built in.</p>
+<ol>
+  <li>Download <code>HomeRunPlayer-X.Y-macos.dmg</code> with the <strong>macOS</strong> button and open it.</li>
+  <li>Drag <strong>HomeRun Player</strong> onto the <strong>Applications</strong> folder.</li>
+  <li>The app is not signed by Apple, so macOS blocks it the first time:
+    <ul>
+      <li>macOS 15 Sequoia and later: try to open it once, then go to <strong>System Settings › Privacy &amp; Security</strong> and click
+        <strong>Open Anyway</strong>;</li>
+      <li>macOS 14 and earlier: right-click (or Control-click) the app in Applications › <strong>Open</strong> › <strong>Open</strong>.</li>
+    </ul>
+    Or, in Terminal: <code>xattr -dr com.apple.quarantine "/Applications/HomeRun Player.app"</code></li>
+  <li>Allow access to the <strong>local network</strong> when macOS asks: it is needed to reach the tuner.</li>
+</ol>
+<p>Recordings go to <code>~/Movies/HomeRun Player</code>. Scheduled recordings only start while the app is open, as on Windows.</p>
+
+<h3>Android (phone, tablet, Android TV)</h3>
+<p>Android 5.0 or later. VLC is built in; the remote control's arrows and OK button work on Android TV.</p>
+<ol>
+  <li>On the device, download <code>HomeRunPlayer-X.Y-android.apk</code> with the <strong>Android</strong> button.</li>
+  <li>Open the file (from the notification or the <em>Downloads</em> app). Android asks to allow installing apps from this source
+    (your browser or file manager): allow it, go back and tap <strong>Install</strong>.</li>
+  <li>Open <strong>HomeRun Player</strong>, then ⚙ Settings to enter the tuner's playlist address.</li>
+</ol>
+<p><strong>Android TV</strong> has no web browser to download with: install an app such as <em>Downloader</em> from the Play Store and give it
+  the address of the <code>.apk</code> (right-click the Android button on a computer › copy link), or copy the file with a USB key and a file
+  manager. From a computer with the Android tools: <code>adb install HomeRunPlayer-*-android.apk</code>.</p>
+<p>Updates install over the previous version and keep your settings. Recordings are stored in the app's own folder
+  (<code>Android/data/fr.popov.homerun/files/Movies</code>) and are deleted if you uninstall it.</p>
 
 <h2>How to use it</h2>
 <h3>First start</h3>
@@ -270,6 +325,8 @@
 <p>Windows with MinGW-w64 64-bit (gcc and windres). No VLC SDK is needed: libVLC is loaded when the program starts.</p>
 <pre>build.bat</pre>
 <p>The result is <code>build\HomeRunPlayer.exe</code>, a single statically linked program.</p>
+<p>The other versions are in their own folders, each with a README explaining how to build it: <code>linux/</code> (C, GTK 4, Meson),
+  <code>macos/</code> (Swift, Xcode) and <code>android/</code> (Kotlin, Gradle). GitHub Actions builds all three and attaches them to every release.</p>
 
 <h2>Privacy policy</h2>
 <p>HomeRun Player has no account and collects no personal data. It talks to:</p>
@@ -285,16 +342,27 @@
 <p>Recordings and settings stay on your computer.</p>
 
 <h2>En français</h2>
-<p><strong>HomeRun Player</strong> est un lecteur TV pour <strong>HDHomeRun</strong>, léger et natif sous Windows : la télé en direct dans sa fenêtre,
+<p><strong>HomeRun Player</strong> est un lecteur TV pour <strong>HDHomeRun</strong>, léger et natif sous Windows, Linux, macOS et Android : la télé en direct dans sa fenêtre,
   un guide TV, l'enregistrement en un clic (jusqu'à la fin de l'émission), l'affichage incrusté, une bordure fine, des tailles d'image
   prédéfinies, et au choix VLC, MPC-HC ou MPC-BE pour l'image. L'interface est en français (ou en anglais, espagnol, allemand, italien,
   portugais : ⚙ Paramètres › Interface).</p>
 <p>Il faut VLC 3.x 64 bits (ou MPC-HC / MPC-BE 64 bits). Téléchargez le zip de la
   <a href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">dernière version</a>, dézippez-le et lancez
   <code>HomeRunPlayer.exe</code>, puis indiquez l'adresse de votre <code>lineup.m3u</code> dans ⚙ Paramètres › Source.
-  Chaque bouton ci-dessous télécharge la version pour votre système (Android : ouvrez le fichier <code>.apk</code>
-  sur l'appareil et autorisez l'installation ; VLC est inclus).
-  Raccourcis : ← → zapper, R enregistrer, E enregistrements, G guide, F plein écran, B bordure fine, T taille, X image dans l'image (clic sur une image pour l'entendre), V langue audio (VO…), U sous-titres, P paramètres.</p>
+  Chaque bouton ci-dessous télécharge la version pour votre système :</p>
+<ul>
+  <li><strong>Linux</strong> (Debian 13, Ubuntu 24.04, Mint 22 ou plus récent) : <code>sudo apt install ./HomeRunPlayer-*-linux-amd64.deb</code>
+    dans le dossier Téléchargements, puis lancez HomeRun Player depuis le menu des applications. Autres distributions : archive
+    <code>.tar.gz</code> de la page de la release, puis <code>./install.sh</code>.</li>
+  <li><strong>macOS</strong> (11 ou plus récent, puces Apple et Intel) : ouvrez le <code>.dmg</code> et glissez l'appli dans Applications.
+    Elle n'est pas signée par Apple : au premier lancement, <em>Réglages Système › Confidentialité et sécurité › Ouvrir quand même</em>
+    (macOS 15), ou clic droit sur l'appli › Ouvrir (macOS 14 et avant). Autorisez l'accès au réseau local.</li>
+  <li><strong>Android</strong> (5.0 ou plus récent, téléphone, tablette, Android TV) : ouvrez le fichier <code>.apk</code> sur l'appareil et
+    autorisez l'installation depuis cette source ; VLC est inclus. Sur Android TV, passez par l'appli <em>Downloader</em>, une clé USB ou
+    <code>adb install</code>.</li>
+</ul>
+<p>Sur chaque système, indiquez l'adresse <code>http://&lt;IP du tuner&gt;/lineup.m3u</code> dans ⚙ Paramètres au premier lancement.
+  Raccourcis (Windows) : ← → zapper, R enregistrer, E enregistrements, G guide, F plein écran, B bordure fine, T taille, X image dans l'image (clic sur une image pour l'entendre), V langue audio (VO…), U sous-titres, P paramètres.</p>
 
 <div class="buttons">
   <a class="btn dl" data-os="windows" href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">Windows</a>
