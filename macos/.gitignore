@@ -1,0 +1,9 @@
+# Produits de construction et dépendances téléchargées (voir build.sh)
+Vendor/
+build/
+dist/
+.build/
+.swiftpm/
+HomeRunPlayer.xcodeproj/
+Resources/AppIcon.icns
+fake_tuner.log
