@@ -54,12 +54,20 @@ jobs:
           chmod +x build.sh tools/*.sh
           VER="${{ github.event.inputs.version }}"
           if [ "${{ github.event_name }}" = "release" ]; then VER="${{ github.event.release.tag_name }}"; fi
-          ./build.sh "$VER"
+          ./build.sh "$VER" 2>&1 | tee build.out
 
+      # Erreurs remontées en annotations (lisibles sans se connecter à GitHub).
       - name: Journal de compilation
         if: failure()
         run: |
-          [ -f build/xcodebuild.log ] && grep -E "error|warning" build/xcodebuild.log | head -200 || true
+          annot() { python3 -c 'import sys; d=sys.stdin.read()[-30000:]; print(d.replace("%","%25").replace("\r","").replace("\n","%0A"))'; }
+          if [ -f build/xcodebuild.log ]; then
+            grep -E "error:|Error |fatal" build/xcodebuild.log | sort -u | head -120 > errs.txt || true
+            cat errs.txt
+            echo "::error title=xcodebuild::$(annot < errs.txt)"
+            echo "::warning title=xcodebuild (fin)::$(tail -40 build/xcodebuild.log | annot)"
+          fi
+          [ -f build.out ] && echo "::warning title=build.sh (fin)::$(tail -60 build.out | annot)" || true
 
       - uses: actions/upload-artifact@v4
         with:
