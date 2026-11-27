@@ -94,9 +94,10 @@ y joint le `.tar.gz` et le `.deb` (il ne crée jamais de release lui-même).
 
 ## Reste à faire / non vérifié
 
-- Développé sous Windows sans WSL : l'interface GTK n'a pas pu être compilée localement ; seule
-  l'intégration continue la compile et l'essaie (Xvfb, flux de test). Pas encore essayée sur un vrai bureau
-  Linux ni avec le vrai HDHomeRun (le cœur — playlist, guide — a été vérifié sur les vraies données du tuner).
+- Développé sous Windows sans WSL : l'interface GTK est compilée et essayée uniquement en intégration
+  continue (Xvfb, flux de test : playlist chargée, dernière chaîne reprise, images affichées). Pas encore
+  essayée sur un vrai bureau Linux ni avec le vrai HDHomeRun (le cœur — playlist, guide — a été vérifié sur
+  les vraies données du tuner).
 - Pas d'AppImage (GTK 4 + libVLC et ses plugins à embarquer) : `.deb` et `.tar.gz` utilisant les paquets du système.
 - Décodage matériel : avec le rendu en mémoire, VA-API n'est utilisé que si libVLC sait recopier l'image ;
   sinon décodage logiciel. Désactiver « Décodage matériel » si l'image est verte ou saccadée.
