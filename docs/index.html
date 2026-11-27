@@ -32,6 +32,8 @@
   .btn { display: inline-block; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600;
          border: 1px solid var(--line); background: var(--panel); color: var(--text); }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .btn.soon { opacity: .55; pointer-events: none; }
+  .btn small { font-weight: 400; opacity: .8; }
   .note { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 16px; margin: 16px 0; }
   figure { margin: 0; }
   .hero { margin: 18px 0 6px; }
@@ -60,11 +62,14 @@
     <img src="img/icon.png" alt="">
     <h1>HomeRun Player</h1>
   </div>
-  <p class="lead">A light, native Windows TV player for <strong>HDHomeRun</strong> tuners: live TV in its own window,
+  <p class="lead">A light TV player for <strong>HDHomeRun</strong> tuners, for Windows and Android (Linux and macOS coming): live TV in its own window,
     a TV guide, one-click recording, an on-screen display, a thin-border mode, and a choice of
     <strong>VLC</strong>, <strong>MPC-HC</strong> or <strong>MPC-BE</strong> to play the picture.</p>
   <div class="buttons">
-    <a class="btn primary" href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">Download for Windows</a>
+    <a class="btn primary dl" data-os="windows" href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">Windows</a>
+    <a class="btn primary dl" data-os="android" href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">Android</a>
+    <a class="btn primary dl" data-os="linux" href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">Linux</a>
+    <a class="btn primary dl" data-os="macos" href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">macOS</a>
     <a class="btn" href="https://github.com/Popov2026/VlcMaster-V2">Source code</a>
     <a class="btn" href="https://github.com/Popov2026/VlcMaster-V2/issues">Report a problem</a>
   </div>
@@ -153,6 +158,17 @@
 </ul>
 
 <h2>Download and install</h2>
+<div class="buttons">
+  <a class="btn dl" data-os="windows" href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">Windows</a>
+  <a class="btn dl" data-os="android" href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">Android</a>
+  <a class="btn dl" data-os="linux" href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">Linux</a>
+  <a class="btn dl" data-os="macos" href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">macOS</a>
+</div>
+<p>Every button downloads the file for that system from the <a href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">latest release</a>.
+  Android: open the <code>.apk</code> on the phone, tablet or Android TV and allow installing from this source
+  (Android 5.0 or later; VLC is built in). Linux: the button gets the <code>.deb</code> package (Debian, Ubuntu, Mint…);
+  a <code>.tar.gz</code> archive for other distributions is on the release page.</p>
+<h3>Windows</h3>
 <ol>
   <li>Install <a href="https://www.videolan.org/vlc/">VLC 3.x 64-bit</a> if you do not have it (or MPC-HC / MPC-BE 64-bit).</li>
   <li>Download <code>HomeRunPlayer-vX.Y-win64.zip</code> from the <a href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">latest release</a>
@@ -276,11 +292,55 @@
 <p>Il faut VLC 3.x 64 bits (ou MPC-HC / MPC-BE 64 bits). Téléchargez le zip de la
   <a href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">dernière version</a>, dézippez-le et lancez
   <code>HomeRunPlayer.exe</code>, puis indiquez l'adresse de votre <code>lineup.m3u</code> dans ⚙ Paramètres › Source.
+  Chaque bouton ci-dessous télécharge la version pour votre système (Android : ouvrez le fichier <code>.apk</code>
+  sur l'appareil et autorisez l'installation ; VLC est inclus).
   Raccourcis : ← → zapper, R enregistrer, E enregistrements, G guide, F plein écran, B bordure fine, T taille, X image dans l'image (clic sur une image pour l'entendre), V langue audio (VO…), U sous-titres, P paramètres.</p>
+
+<div class="buttons">
+  <a class="btn dl" data-os="windows" href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">Windows</a>
+  <a class="btn dl" data-os="android" href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">Android</a>
+  <a class="btn dl" data-os="linux" href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">Linux</a>
+  <a class="btn dl" data-os="macos" href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">macOS</a>
+</div>
 
 <footer>HomeRun Player (formerly VLC Master) · © Popov 2026 ·
   <a href="https://github.com/Popov2026/VlcMaster-V2">GitHub</a> ·
   HDHomeRun is a trademark of SiliconDust; this project is not affiliated with SiliconDust, VideoLAN or the MPC projects.</footer>
 </main>
+<script>
+/* Boutons de téléchargement : fichier de chaque système dans la dernière release GitHub.
+   Sans fichier pour un système : « coming soon » ; sans réponse de GitHub : lien vers la release. */
+(function () {
+  var match = {
+    windows: function (n) { return /win(64|dows)?.*\.(zip|exe|msi)$/i.test(n); },
+    android: function (n) { return /\.apk$/i.test(n); },
+    linux:   function (n) { return /linux.*\.(appimage|deb|tar\.gz|tar\.xz)$/i.test(n) || /\.(appimage|deb)$/i.test(n); },
+    macos:   function (n) { return /\.(dmg|pkg)$/i.test(n) || /mac(os)?.*\.zip$/i.test(n); }
+  };
+  var soon = document.documentElement.lang === "fr" ? "bientôt" : "coming soon";
+  fetch("https://api.github.com/repos/Popov2026/VlcMaster-V2/releases/latest")
+    .then(function (r) { if (!r.ok) throw r.status; return r.json(); })
+    .then(function (rel) {
+      var assets = rel.assets || [];
+      document.querySelectorAll("a.dl").forEach(function (a) {
+        var os = a.getAttribute("data-os"), f = assets.filter(function (x) { return match[os](x.name); });
+        // Linux : AppImage, sinon .deb, sinon archive .tar.gz/.tar.xz.
+        var rank = function (n) { return /\.appimage$/i.test(n) ? 0 : /\.deb$/i.test(n) ? 1 : 2; };
+        if (os === "linux") f.sort(function (x, y) { return rank(x.name) - rank(y.name); });
+        var label = a.textContent.replace(/\s+\(.*$/, "");
+        if (f.length) {
+          a.href = f[0].browser_download_url;
+          a.title = f[0].name;
+          a.innerHTML = label + " <small>" + (rel.tag_name || "") + "</small>";
+        } else {
+          a.classList.add("soon");
+          a.removeAttribute("href");
+          a.innerHTML = label + " <small>(" + soon + ")</small>";
+        }
+      });
+    })
+    .catch(function () {});
+})();
+</script>
 </body>
 </html>

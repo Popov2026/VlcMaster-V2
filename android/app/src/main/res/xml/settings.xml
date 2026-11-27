@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory app:title="@string/set_cat_play" app:iconSpaceReserved="false">
+        <EditTextPreference
+            app:key="playlist_url"
+            app:title="@string/set_playlist"
+            app:dialogMessage="@string/set_playlist_help"
+            app:defaultValue="http://192.168.1.90/lineup.m3u"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            app:key="resume"
+            app:title="@string/set_resume"
+            app:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <ListPreference
+            app:key="caching"
+            app:title="@string/set_cache"
+            app:entries="@array/cache_labels"
+            app:entryValues="@array/cache_values"
+            app:defaultValue="1000"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            app:key="hw_decoding"
+            app:title="@string/set_hw"
+            app:summary="@string/set_hw_help"
+            app:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <ListPreference
+            app:key="deinterlace"
+            app:title="@string/set_deint"
+            app:entries="@array/deint_labels"
+            app:entryValues="@array/deint_values"
+            app:defaultValue="yadif"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <ListPreference
+            app:key="aspect"
+            app:title="@string/set_aspect"
+            app:entries="@array/aspect_labels"
+            app:entryValues="@array/aspect_values"
+            app:defaultValue=""
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/set_cat_guide" app:iconSpaceReserved="false">
+        <SwitchPreferenceCompat
+            app:key="show_guide"
+            app:title="@string/set_guide"
+            app:summary="@string/set_guide_help"
+            app:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <ListPreference
+            app:key="rec_margin"
+            app:title="@string/set_margin"
+            app:entries="@array/margin_labels"
+            app:entryValues="@array/margin_values"
+            app:defaultValue="10"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <Preference
+            app:key="recordings"
+            app:title="@string/recordings"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/set_cat_ui" app:iconSpaceReserved="false">
+        <ListPreference
+            app:key="ui_lang"
+            app:title="@string/set_lang"
+            app:entries="@array/lang_labels"
+            app:entryValues="@array/lang_values"
+            app:defaultValue=""
+            app:persistent="false"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/set_cat_tuner" app:iconSpaceReserved="false">
+        <Preference
+            app:key="tuner"
+            app:title="@string/tuner_title"
+            app:summary="@string/set_tuner_help"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            app:key="check_updates"
+            app:title="@string/set_updchk"
+            app:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <Preference
+            app:key="update_now"
+            app:title="@string/set_updnow"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+</PreferenceScreen>

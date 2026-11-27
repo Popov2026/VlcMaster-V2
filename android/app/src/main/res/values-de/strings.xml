@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Généré par tools/gen_strings.py : modifier la table du script, pas ce fichier. -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="app_name">HomeRun Player</string>
+    <string name="channels">Sender</string>
+    <string name="btn_list">☰ Sender</string>
+    <string name="btn_prev">◀</string>
+    <string name="btn_next">▶</string>
+    <string name="btn_sound">🔊</string>
+    <string name="btn_muted">🔇</string>
+    <string name="btn_guide">TV-Programm</string>
+    <string name="btn_lang">♫ Sprache</string>
+    <string name="btn_rec">● Aufn.</string>
+    <string name="btn_pip">PiP</string>
+    <string name="btn_recs">Aufnahmen</string>
+    <string name="btn_full">⛶ Vollbild</string>
+    <string name="btn_settings">⚙ Einstellungen</string>
+    <string name="btn_play">▶ Wiedergabe</string>
+    <string name="btn_pause">❚❚ Pause</string>
+    <string name="btn_back30">« 30 s</string>
+    <string name="btn_fwd30">30 s »</string>
+    <string name="settings">Einstellungen</string>
+    <string name="opening">„%s“ wird geöffnet…</string>
+    <string name="loading_playlist">Playlist wird geladen…</string>
+    <string name="playlist_empty">Die Playlist enthält keine Sender</string>
+    <string name="playlist_error">%s\n\nPrüfen Sie die Playlist-Adresse unter ⚙ Einstellungen.</string>
+    <string name="retrying">Stream unterbrochen — neuer Versuch (%d)…</string>
+    <string name="cannot_play">„%s“ kann nicht wiedergegeben werden.\nMöglicherweise sind alle Tuner belegt.</string>
+    <string name="volume_pct">Lautstärke %d %%</string>
+    <string name="muted">Ton aus</string>
+    <string name="unmuted">Ton an</string>
+    <string name="next_prog">Danach %1$s  %2$s</string>
+    <string name="no_channel_num">Kein Sender %s</string>
+    <string name="firmware_available">HDHomeRun: Firmware-Update verfügbar (%s)</string>
+    <string name="ctx_play">Ansehen</string>
+    <string name="ctx_pip">Im Bild-im-Bild (PiP)</string>
+    <string name="ctx_rec">Aufnehmen…</string>
+    <string name="pip_title">Bild im Bild (PiP)</string>
+    <string name="pip_choose">Sender im Bild-im-Bild</string>
+    <string name="pip_change">Sender wechseln</string>
+    <string name="pip_swap">Bilder tauschen</string>
+    <string name="pip_sound_to_pip">Ton vom Bild-im-Bild</string>
+    <string name="pip_sound_to_main">Ton vom Hauptbild</string>
+    <string name="pip_move">Bild-im-Bild verschieben</string>
+    <string name="pip_close">Bild-im-Bild schließen</string>
+    <string name="pip_sound_pip">Ton: Bild-im-Bild</string>
+    <string name="pip_sound_main">Ton: Hauptbild</string>
+    <string name="lang_title">Sprache und Untertitel</string>
+    <string name="trk_audio_item">Audiosprache: %s</string>
+    <string name="trk_spu_item">Untertitel: %s</string>
+    <string name="trk_spu_off">Aus</string>
+    <string name="trk_none">Keine Tonspuren oder Untertitel auf diesem Sender</string>
+    <string name="trk_qaa">Originalfassung</string>
+    <string name="trk_qad">Audiodeskription</string>
+    <string name="trk_qtz">Mehrsprachige Fassung</string>
+    <string name="trk_mis">Nicht codiert</string>
+    <string name="trk_und">Unbestimmt</string>
+    <string name="trk_ad">Audiodeskription</string>
+    <string name="trk_hoh">Hörgeschädigte</string>
+    <string name="guide_title">TV-Programm</string>
+    <string name="guide_loading">TV-Programm: wird geladen…</string>
+    <string name="guide_refresh">Aktualisieren</string>
+    <string name="guide_watch">Ansehen</string>
+    <string name="guide_record">Aufnehmen</string>
+    <string name="guide_no_data">Kein Programm</string>
+    <string name="guide_err_no_tuner">TV-Programm nicht verfügbar: kein HDHomeRun gefunden (%s)</string>
+    <string name="guide_err_service">TV-Programm nicht verfügbar: %s</string>
+    <string name="guide_err_empty">TV-Programm nicht verfügbar: der Dienst hat keine Sendungen geliefert</string>
+    <string name="recordings">Aufnahmen</string>
+    <string name="rec_title">%s aufnehmen</string>
+    <string name="rec_until_end">Bis zum Ende von „%1$s“ (%2$s)</string>
+    <string name="rec_for">%s aufnehmen</string>
+    <string name="rec_unlimited">Ohne Begrenzung aufnehmen</string>
+    <string name="rec_stop_one">Aufnahme von %s stoppen</string>
+    <string name="rec_started">● Aufnahme von %s (ohne Begrenzung)</string>
+    <string name="rec_started_until">● Aufnahme von %1$s bis %2$s</string>
+    <string name="rec_done">Aufnahme von %1$s beendet · %2$s · %3$s</string>
+    <string name="rec_stopped_err">Aufnahme von %1$s abgebrochen (%2$s) · %3$s · %4$s</string>
+    <string name="rec_failed">Aufnahme von %1$s nicht möglich: %2$s</string>
+    <string name="rec_no_data">keine Daten empfangen</string>
+    <string name="rec_err_no_tuner">kein Tuner frei</string>
+    <string name="rec_until">bis %s</string>
+    <string name="rec_no_limit">ohne Begrenzung</string>
+    <string name="rec_starting">Wird gestartet…</string>
+    <string name="rec_stop_all">Alle stoppen</string>
+    <string name="rec_stop">Stoppen</string>
+    <string name="rec_stop_confirm">Diese Aufnahme stoppen?</string>
+    <string name="rec_indicator">● AUFN</string>
+    <string name="rec_live_line">Läuft · %1$s · %2$s</string>
+    <string name="rec_resume_at">fortsetzen bei %s</string>
+    <string name="rec_play">Abspielen</string>
+    <string name="rec_play_start">Von Anfang an abspielen</string>
+    <string name="rec_empty">Keine Aufnahmen</string>
+    <string name="rec_folder">Ordner: %s</string>
+    <string name="rec_delete_title">Löschen</string>
+    <string name="rec_delete_msg">„%s“ löschen?\n\nDie Datei wird endgültig gelöscht.</string>
+    <string name="delete">Löschen</string>
+    <string name="notif_channel_rec">Aufnahmen</string>
+    <string name="tuner_title">HDHomeRun-Tuner</string>
+    <string name="tuner_loading">%s wird gelesen…</string>
+    <string name="tuner_unreachable">HDHomeRun nicht erreichbar (%1$s): %2$s</string>
+    <string name="tuner_name">Name</string>
+    <string name="tuner_model">Modell</string>
+    <string name="tuner_id">Geräte-ID</string>
+    <string name="tuner_count">Tuner</string>
+    <string name="tuner_fw">Firmware</string>
+    <string name="tuner_upgrade">Firmware-Update verfügbar: %s\nInstallation über die Seite des Tuners oder die HDHomeRun-App.</string>
+    <string name="tuner_up_to_date">Firmware aktuell</string>
+    <string name="tuner_refresh">Aktualisieren</string>
+    <string name="tuner_web">Tuner-Seite</string>
+    <string name="scan_title">Sendersuchlauf</string>
+    <string name="scan_help">Sucht alle über die Antenne empfangenen Sender. Während des Suchlaufs kann der Tuner nichts streamen; die Senderliste wird am Ende ersetzt.</string>
+    <string name="scan_confirm">Sendersuchlauf starten? Wiedergabe und Aufnahmen werden unterbrochen.</string>
+    <string name="scan_start">Suchlauf starten</string>
+    <string name="scan_abort">Suchlauf abbrechen</string>
+    <string name="scan_progress" formatted="false">Suchlauf: %1$d %% · %2$d Sender gefunden</string>
+    <string name="scan_done">Suchlauf beendet. Die Senderliste wird neu geladen.</string>
+    <string name="scan_failed">Suchlauf konnte nicht starten: %s</string>
+    <string name="update_banner">Neue Version %s verfügbar — tippen zum Herunterladen (lange drücken: ignorieren)</string>
+    <string name="update_checking">Wird geprüft…</string>
+    <string name="update_none">Version %1$s ist aktuell (neueste: %2$s)</string>
+    <string name="update_failed">Prüfung fehlgeschlagen: %s</string>
+    <string name="version_current">Version %s</string>
+    <string name="set_cat_play">Wiedergabe</string>
+    <string name="set_cat_guide">TV-Programm und Aufnahme</string>
+    <string name="set_cat_ui">Oberfläche</string>
+    <string name="set_cat_tuner">HDHomeRun und Updates</string>
+    <string name="set_playlist">Playlist-Adresse (lineup.m3u)</string>
+    <string name="set_playlist_help">Beispiel: http://192.168.1.90/lineup.m3u</string>
+    <string name="set_resume">Beim Start den letzten Sender fortsetzen</string>
+    <string name="set_cache">Netzwerkpuffer</string>
+    <string name="set_hw">Hardware-Dekodierung</string>
+    <string name="set_hw_help">Deaktivieren, wenn das Bild grün ist oder ruckelt</string>
+    <string name="set_deint">Deinterlacing</string>
+    <string name="set_aspect">Seitenverhältnis</string>
+    <string name="set_guide">TV-Programm</string>
+    <string name="set_guide_help">Aktuelle Sendung unter jedem Sender (Programmdienst von SiliconDust)</string>
+    <string name="set_margin">Puffer nach Sendungsende</string>
+    <string name="set_lang">Sprache</string>
+    <string name="set_tuner_help">Modell, Firmware, Sendersuchlauf</string>
+    <string name="set_updchk">Neue Versionen melden</string>
+    <string name="set_updnow">Jetzt prüfen</string>
+    <plurals name="rec_notif_title">
+        <item quantity="one">%d Aufnahme läuft</item>
+        <item quantity="other">%d Aufnahmen laufen</item>
+    </plurals>
+    <string-array name="cache_labels">
+        <item>300 ms</item>
+        <item>1 s</item>
+        <item>2 s</item>
+        <item>3 s</item>
+        <item>5 s</item>
+    </string-array>
+    <string-array name="deint_labels">
+        <item>Aus</item>
+        <item>Yadif</item>
+        <item>Yadif 2x (flüssig)</item>
+        <item>Bob</item>
+        <item>Linear</item>
+        <item>Mischen</item>
+    </string-array>
+    <string-array name="aspect_labels">
+        <item>Standard</item>
+        <item>16:9</item>
+        <item>4:3</item>
+        <item>16:10</item>
+        <item>21:9</item>
+        <item>2.35:1</item>
+    </string-array>
+    <string-array name="margin_labels">
+        <item>0 min</item>
+        <item>5 min</item>
+        <item>10 min</item>
+        <item>15 min</item>
+        <item>30 min</item>
+    </string-array>
+    <string-array name="lang_labels">
+        <item>Systemsprache</item>
+        <item>Français</item>
+        <item>English</item>
+        <item>Español</item>
+        <item>Deutsch</item>
+        <item>Italiano</item>
+        <item>Português</item>
+    </string-array>
+</resources>

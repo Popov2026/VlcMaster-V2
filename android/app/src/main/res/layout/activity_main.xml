@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <org.videolan.libvlc.util.VLCVideoLayout
+        android:id="@+id/video"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Reçoit les gestes (tap, glisser) et le focus quand l'interface est masquée. -->
+    <View
+        android:id="@+id/touch"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:focusable="true"
+        android:focusableInTouchMode="false" />
+
+    <!-- Image dans l'image : seconde chaîne (TextureView pour se superposer à l'image principale). -->
+    <FrameLayout
+        android:id="@+id/pipBox"
+        android:layout_width="320dp"
+        android:layout_height="180dp"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="16dp"
+        android:background="@drawable/pip_border"
+        android:padding="2dp"
+        android:visibility="gone">
+
+        <org.videolan.libvlc.util.VLCVideoLayout
+            android:id="@+id/pipVideo"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <View
+            android:id="@+id/pipTouch"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <TextView
+            android:id="@+id/pipLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:background="#99000000"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="2dp"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_margin="32dp"
+        android:background="#99000000"
+        android:gravity="center"
+        android:padding="16dp"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/hud"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_margin="24dp"
+        android:background="@drawable/hud_bg"
+        android:maxWidth="560dp"
+        android:orientation="vertical"
+        android:padding="14dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/hudTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/hudProg"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:maxWidth="520dp"
+            android:textColor="#E0E0E0"
+            android:textSize="15sp" />
+
+        <ProgressBar
+            android:id="@+id/hudProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="260dp"
+            android:layout_height="4dp"
+            android:layout_marginTop="6dp"
+            android:max="1000"
+            android:progressTint="@color/accent" />
+
+        <TextView
+            android:id="@+id/hudNext"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:maxWidth="520dp"
+            android:textColor="#A0A0A0"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/flash"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="24dp"
+        android:background="@drawable/hud_bg"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp"
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/recIndicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_margin="20dp"
+        android:background="@drawable/hud_bg"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="4dp"
+        android:text="@string/rec_indicator"
+        android:textColor="#FF4040"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/panel"
+        android:layout_width="340dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:background="#E0101418"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/panelTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="12dp"
+            android:text="@string/channels"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/list"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:paddingBottom="72dp"
+            android:clipToPadding="false" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/updBanner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:background="@color/accent"
+        android:focusable="true"
+        android:gravity="center"
+        android:padding="10dp"
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:visibility="gone" />
+
+    <HorizontalScrollView
+        android:id="@+id/controls"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="#D0101418"
+        android:scrollbars="none"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="8dp">
+
+            <Button android:id="@+id/btnList" style="@style/Ctl" android:text="@string/btn_list" />
+            <Button android:id="@+id/btnPrev" style="@style/Ctl" android:text="@string/btn_prev" />
+            <Button android:id="@+id/btnNext" style="@style/Ctl" android:text="@string/btn_next" />
+            <Button android:id="@+id/btnMute" style="@style/Ctl" android:text="@string/btn_sound" />
+            <SeekBar
+                android:id="@+id/vol"
+                android:layout_width="150dp"
+                android:layout_height="wrap_content"
+                android:max="150"
+                android:progressTint="@color/accent"
+                android:thumbTint="@color/accent" />
+            <Button android:id="@+id/btnGuide" style="@style/Ctl" android:text="@string/btn_guide" />
+            <Button android:id="@+id/btnLang" style="@style/Ctl" android:text="@string/btn_lang" />
+            <Button android:id="@+id/btnRec" style="@style/Ctl" android:text="@string/btn_rec" />
+            <Button android:id="@+id/btnPip" style="@style/Ctl" android:text="@string/btn_pip" />
+            <Button android:id="@+id/btnRecs" style="@style/Ctl" android:text="@string/btn_recs" />
+            <Button android:id="@+id/btnFull" style="@style/Ctl" android:text="@string/btn_full" />
+            <Button android:id="@+id/btnSettings" style="@style/Ctl" android:text="@string/btn_settings" />
+        </LinearLayout>
+    </HorizontalScrollView>
+</FrameLayout>
