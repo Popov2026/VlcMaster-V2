@@ -11,6 +11,12 @@ on:
       - "linux/**"
       - ".github/workflows/linux.yml"
   workflow_dispatch:
+  # Release publiée (par l'utilisateur) : les paquets Linux y sont joints.
+  release:
+    types: [published]
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -37,7 +43,7 @@ jobs:
         id: ver
         run: |
           ver=$(sed -n "s/^  version : '\(.*\)',/\1/p" meson.build)
-          case "$GITHUB_REF" in refs/tags/v*) ver=${GITHUB_REF#refs/tags/v} ;; esac
+          case "$GITHUB_REF" in refs/tags/v*|refs/tags/V*) ver=${GITHUB_REF#refs/tags/?} ;; refs/tags/*) ver=${GITHUB_REF#refs/tags/} ;; esac
           echo "version=$ver" >> "$GITHUB_OUTPUT"
           echo "Version : $ver"
 
@@ -60,6 +66,13 @@ jobs:
         run: |
           sudo apt-get install -y ./dist/*.deb
           homerun-player --version
+
+      - name: Joindre les paquets à la release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" dist/*.tar.gz dist/*.deb --clobber --repo "$GITHUB_REPOSITORY"
 
       - uses: actions/upload-artifact@v4
         with:

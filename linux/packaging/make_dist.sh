@@ -5,7 +5,7 @@
 #
 # Produit :
 #   HomeRunPlayer-<version>-linux-<arch>.tar.gz   (binaire + install.sh, dépendances du système)
-#   homerun-player_<version>_<arch-deb>.deb       (Debian 13, Ubuntu 24.04 ou plus récents)
+#   HomeRunPlayer-<version>-linux-<arch-deb>.deb  (Debian 13, Ubuntu 24.04 ou plus récents)
 set -eu
 
 VER=$1
@@ -52,6 +52,6 @@ Description: TV player for HDHomeRun tuners
  Channel list, zapping, TV guide, audio and subtitle languages,
  recordings, picture-in-picture, tuner information and channel scan.
 EOF
-dpkg-deb --root-owner-group --build "$DEB" "$OUT/homerun-player_${VER}_${DEBARCH}.deb"
+dpkg-deb --root-owner-group --build "$DEB" "$OUT/HomeRunPlayer-$VER-linux-$DEBARCH.deb"
 
 ls -l "$OUT"

@@ -45,7 +45,7 @@ meson test -C build          # tests du cœur (playlist, guide, JSON, pistes, no
 Fedora : `gtk4-devel vlc-devel libcurl-devel` (VLC depuis RPM Fusion). Arch : `gtk4 vlc curl meson`.
 
 Paquets : `sh packaging/make_dist.sh <version> build dist` → `HomeRunPlayer-<version>-linux-<arch>.tar.gz`
-(avec `install.sh`, installe dans `~/.local` par défaut) et `homerun-player_<version>_<arch>.deb`.
+(avec `install.sh`, installe dans `~/.local` par défaut) et `HomeRunPlayer-<version>-linux-<arch>.deb`.
 
 Les textes sont générés par `python3 tools/gen_strings.py` (→ `src/strings_ids.h`, `src/strings_gen.h`) ;
 modifier la table du script, pas les fichiers générés.
@@ -53,7 +53,7 @@ modifier la table du script, pas les fichiers générés.
 ## Installer
 
 ```sh
-sudo apt install ./homerun-player_3.7_amd64.deb
+sudo apt install ./HomeRunPlayer-3.7-linux-amd64.deb
 ```
 
 ou, depuis l'archive : `tar xzf HomeRunPlayer-3.7-linux-x86_64.tar.gz && ./HomeRunPlayer-3.7-linux-x86_64/install.sh`
@@ -73,7 +73,8 @@ ou, depuis l'archive : `tar xzf HomeRunPlayer-3.7-linux-x86_64.tar.gz && ./HomeR
 
 GitHub Actions : `.github/workflows/linux.yml` (ubuntu-24.04) compile, lance les tests et l'essai sous Xvfb,
 construit le `.tar.gz` et le `.deb`, vérifie l'installation du `.deb` et publie l'artefact `HomeRunPlayer-linux`
-(+ `smoke-test` : journaux et capture d'écran).
+(+ `smoke-test` : journaux et capture d'écran). Quand une release est publiée sur GitHub, le même workflow
+y joint le `.tar.gz` et le `.deb` (il ne crée jamais de release lui-même).
 
 ## Organisation
 
