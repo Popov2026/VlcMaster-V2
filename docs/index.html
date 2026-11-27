@@ -166,7 +166,8 @@
 </div>
 <p>Every button downloads the file for that system from the <a href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">latest release</a>.
   Android: open the <code>.apk</code> on the phone, tablet or Android TV and allow installing from this source
-  (Android 5.0 or later; VLC is built in).</p>
+  (Android 5.0 or later; VLC is built in). Linux: the button gets the <code>.deb</code> package (Debian, Ubuntu, Mint…);
+  a <code>.tar.gz</code> archive for other distributions is on the release page.</p>
 <h3>Windows</h3>
 <ol>
   <li>Install <a href="https://www.videolan.org/vlc/">VLC 3.x 64-bit</a> if you do not have it (or MPC-HC / MPC-BE 64-bit).</li>
@@ -323,7 +324,9 @@
       var assets = rel.assets || [];
       document.querySelectorAll("a.dl").forEach(function (a) {
         var os = a.getAttribute("data-os"), f = assets.filter(function (x) { return match[os](x.name); });
-        if (os === "linux") f.sort(function (x, y) { return /appimage/i.test(y.name) - /appimage/i.test(x.name); });
+        // Linux : AppImage, sinon .deb, sinon archive .tar.gz/.tar.xz.
+        var rank = function (n) { return /\.appimage$/i.test(n) ? 0 : /\.deb$/i.test(n) ? 1 : 2; };
+        if (os === "linux") f.sort(function (x, y) { return rank(x.name) - rank(y.name); });
         var label = a.textContent.replace(/\s+\(.*$/, "");
         if (f.length) {
           a.href = f[0].browser_download_url;
