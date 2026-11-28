@@ -129,6 +129,17 @@ les démarrages suivants sont quasi instantanés.
 
 Lancement : `HomeRunPlayer.exe` (option : `HomeRunPlayer.exe <playlist ou flux>`).
 
+## 🙏 Remerciements
+
+- **SiliconDust**, fabricant des tuners [HDHomeRun](https://www.silicondust.com/) : des tuners réseau ouverts (flux HTTP, liste des
+  chaînes en `lineup.m3u`, informations en JSON, service guide TV) qui permettent à n'importe quel programme de regarder la télé.
+- **VideoLAN** et les bénévoles de [VLC](https://www.videolan.org/) pour la bibliothèque **libVLC** (LGPL 2.1+), qui décode et affiche
+  chaque image de HomeRun Player : libVLC sous Windows et Linux, VLCKit sous macOS, libVLC pour Android.
+- Les projets **MPC-HC** et **MPC-BE**, moteurs de lecture possibles sous Windows.
+
+HDHomeRun est une marque de SiliconDust USA Inc. ; VLC et VideoLAN sont des marques de VideoLAN. HomeRun Player est un projet
+indépendant, sans lien avec SiliconDust ni VideoLAN.
+
 ## 🛠️ Compilation
 
 MinGW-w64 64 bits (gcc + windres), aucun SDK VLC nécessaire (libVLC est chargée dynamiquement) :

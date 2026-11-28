@@ -341,6 +341,22 @@
 <p>The other versions are in their own folders, each with a README explaining how to build it: <code>linux/</code> (C, GTK 4, Meson),
   <code>macos/</code> (Swift, Xcode) and <code>android/</code> (Kotlin, Gradle). GitHub Actions builds all three and attaches them to every release.</p>
 
+<h2 id="thanks">Thanks</h2>
+<ul>
+  <li><strong>SiliconDust</strong>, maker of the <a href="https://www.silicondust.com/">HDHomeRun</a> tuners. HomeRun Player exists because
+    HDHomeRun tuners are so open: they stream TV straight to any device on the home network, publish their channel list as a simple
+    <code>lineup.m3u</code> playlist and describe themselves in plain JSON — and SiliconDust's guide service provides the TV listings.
+    Thank you for building network tuners that any program can talk to.</li>
+  <li><strong>VideoLAN and the VLC developers</strong>, for <a href="https://www.videolan.org/vlc/libvlc.html">libVLC</a>, the library
+    behind <a href="https://www.videolan.org/vlc/">VLC media player</a>. It decodes and displays every picture in HomeRun Player — on
+    Windows and Linux through libVLC, on macOS through VLCKit and on Android through libVLC for Android. libVLC is free
+    software (LGPL 2.1 or later); none of this would be possible without the work of the VideoLAN volunteers.
+    <a href="https://www.videolan.org/contribute.html">Support VideoLAN</a>.</li>
+  <li>The <strong>MPC-HC</strong> and <strong>MPC-BE</strong> projects, which can also play the picture on Windows.</li>
+</ul>
+<p><small>HDHomeRun is a trademark of SiliconDust USA Inc.; VLC and VideoLAN are trademarks of VideoLAN. HomeRun Player is an independent
+  project, not affiliated with or endorsed by SiliconDust or VideoLAN.</small></p>
+
 <h2>Privacy policy</h2>
 <p>HomeRun Player has no account and collects no personal data. It talks to:</p>
 <ul>
@@ -377,6 +393,10 @@
 <p>Sur chaque système, indiquez l'adresse <code>http://&lt;IP du tuner&gt;/lineup.m3u</code> dans ⚙ Paramètres au premier lancement.
   Option <em>pause en différé</em> (⚙ Paramètres › Lecture) : la pause garde le direct en mémoire, jusqu'à 30 min ; un compteur indique le retard, D = retour au direct.
   Raccourcis (Windows) : ← → zapper, R enregistrer, E enregistrements, G guide, F plein écran, B bordure fine, T taille, X image dans l'image (clic sur une image pour l'entendre), V langue audio (VO…), U sous-titres, P paramètres.</p>
+<p><strong>Remerciements</strong> à <strong>SiliconDust</strong>, le fabricant des tuners <a href="https://www.silicondust.com/">HDHomeRun</a>,
+  ouverts à tous les programmes du réseau (flux, liste des chaînes, guide TV), et à <strong>VideoLAN</strong> et aux bénévoles de
+  <a href="https://www.videolan.org/">VLC</a> pour la bibliothèque libVLC, qui affiche chaque image de HomeRun Player sur les quatre
+  systèmes. Merci aussi aux projets MPC-HC et MPC-BE. HomeRun Player est un projet indépendant, sans lien avec SiliconDust ni VideoLAN.</p>
 
 <div class="buttons">
   <a class="btn dl" data-os="windows" href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">Windows</a>
