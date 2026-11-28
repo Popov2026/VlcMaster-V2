@@ -139,6 +139,8 @@
   <li><strong>Scheduled recordings from the TV guide</strong>: right-click a programme (or press <kbd>R</kbd>) to schedule it; it is
     framed in red in the guide and listed in the recordings window. <strong>HomeRun Player must stay open</strong> (it can be minimised)
     and the computer switched on at recording time.</li>
+  <li><strong>Time-shift pause</strong> (option): pause live TV and pick it up where you left off. A counter shows how far behind
+    live you are; press <kbd>D</kbd> or click it to go back to live. Up to 30 minutes.</li>
   <li><strong>Recordings window</strong>: programme, channel, date, duration, size and status; play back in the main window with a position
     bar, pause, back 10 s and forward 30 s, back to live; delete to the Recycle Bin.</li>
   <li><strong>On-screen display (HUD)</strong>: channel, programme, time, state and resolution, volume, <span class="rec">● REC</span>;
@@ -272,6 +274,16 @@
   the application is closed. While a recording is scheduled, Windows' automatic sleep is blocked; a programme missed because the application
   was closed is reported at the next start, and quitting asks for confirmation.</p>
 
+<h3>Time-shift pause</h3>
+<p>Turn on <strong>Time-shift pause</strong> in the <strong>Play</strong> tab of <strong>⚙ Settings</strong>. From then on, <kbd>Space</kbd> (or <strong>Pause</strong>) keeps the live
+  programme in memory: when you resume, it carries on exactly where you paused it, so you do not lose the thread. A counter at the top right
+  of the picture shows the delay — <em>Paused · delay −05:12</em>, then <em>Delay −05:12 · Live ▶</em> — and the status bar shows it too.</p>
+<p>Press <kbd>D</kbd>, click the counter or right-click the picture › <strong>Back to live</strong> to catch up with the broadcast; changing
+  channel also goes back to live. The delay is limited to <strong>30 minutes</strong>: after that, playback resumes on its own.</p>
+<p class="note">The programme is kept in a temporary file (<code>%TEMP%\HomeRunPlayer-timeshift</code>) holding only what you have not
+  watched yet — at most 1 to 4 GB for 30 minutes depending on the channel — deleted as you watch and when you quit. It uses the same single
+  tuner as normal viewing. VLC engine only.</p>
+
 <h3>Tuner and updates</h3>
 <p><strong>⚙ Settings › Source</strong> shows your HDHomeRun (model, tuners, firmware) and tells you when SiliconDust offers a firmware
   update; <strong>Tuner page…</strong> opens the tuner's own web page, where you install it. <strong>Scan for channels</strong> asks the tuner
@@ -307,7 +319,8 @@
   <tr><td><kbd>←</kbd> <kbd>→</kbd>, <kbd>Page Up</kbd> <kbd>Page Down</kbd></td><td>Previous / next channel (while watching a recording: back 10 s / forward 30 s)</td></tr>
   <tr><td><kbd>0</kbd>–<kbd>9</kbd></td><td>Go to channel number (confirmed automatically or with <kbd>Enter</kbd>)</td></tr>
   <tr><td><kbd>↑</kbd> <kbd>↓</kbd>, mouse wheel</td><td>Volume</td></tr>
-  <tr><td><kbd>Space</kbd></td><td>Pause / play</td></tr>
+  <tr><td><kbd>Space</kbd></td><td>Pause / play (with time-shift pause, resumes where you paused)</td></tr>
+  <tr><td><kbd>D</kbd></td><td>Back to live (time-shift pause)</td></tr>
   <tr><td><kbd>S</kbd> · <kbd>M</kbd></td><td>Stop · Mute</td></tr>
   <tr><td><kbd>R</kbd> · <kbd>E</kbd></td><td>Record / stop recording · Recordings window</td></tr>
   <tr><td><kbd>G</kbd></td><td>TV guide</td></tr>
@@ -362,6 +375,7 @@
     <code>adb install</code>.</li>
 </ul>
 <p>Sur chaque système, indiquez l'adresse <code>http://&lt;IP du tuner&gt;/lineup.m3u</code> dans ⚙ Paramètres au premier lancement.
+  Option <em>pause en différé</em> (⚙ Paramètres › Lecture) : la pause garde le direct en mémoire, jusqu'à 30 min ; un compteur indique le retard, D = retour au direct.
   Raccourcis (Windows) : ← → zapper, R enregistrer, E enregistrements, G guide, F plein écran, B bordure fine, T taille, X image dans l'image (clic sur une image pour l'entendre), V langue audio (VO…), U sous-titres, P paramètres.</p>
 
 <div class="buttons">

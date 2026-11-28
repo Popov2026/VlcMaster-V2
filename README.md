@@ -38,6 +38,16 @@ la page du projet propose un bouton de téléchargement par système.
   - dans la liste, badges « TV » (image principale) et « PIP », ♪ sur celle qui a le son ; clic droit sur une chaîne › *Regarder en PIP* ;
   - position (4 coins) et taille (15 à 50 % de la largeur) dans Paramètres › Interface ou par clic droit sur l'encart ; repris au démarrage ;
   - utilise un second tuner ; disponible avec le moteur VLC.
+- **Pause en différé** (option, ⚙ Paramètres › Lecture) : la pause garde le direct en mémoire ; à la reprise, l'émission
+  continue là où on l'avait arrêtée, sans en perdre le fil :
+  - un **compteur** en haut à droite de l'image (et dans la barre d'état) indique le retard sur le direct :
+    « En pause · différé −05:12 », puis « Différé −05:12 · Direct ▶ » ;
+  - **retour au direct** : touche D, clic sur le compteur, clic droit › *Retour au direct*, ou changement de chaîne ;
+  - différé **limité à 30 min** : au-delà, la lecture reprend toute seule ;
+  - la mémoire est un fichier temporaire (`%TEMP%\HomeRunPlayer-timeshift`) qui ne contient que ce qui n'a pas encore été
+    regardé (1 à 4 Go au plus pour 30 min selon la chaîne), effacé au fur et à mesure et à la fermeture ;
+  - fonctionnement : l'appli lit le flux du tuner en continu et le sert à libVLC par un petit serveur local (127.0.0.1) ;
+    un seul tuner est utilisé, comme sans l'option. Moteur VLC seulement.
 - **Moteur de lecture au choix** (⚙ Paramètres › Moteur de lecture) : **VLC** (libVLC intégré, par défaut), **MPC-HC** ou **MPC-BE** :
   - MPC est lancé en mode piloté (`/slave`) et son image est incrustée dans la fenêtre, sans ses barres ; ses propres réglages ne sont pas modifiés (rendu vidéo, décodage LAV, madVR… se règlent dans MPC) ;
   - tout le reste est identique : liste, guide, HUD, enregistrement, lecture des enregistrements avec déplacement, bordure fine, tailles ;
@@ -46,7 +56,7 @@ la page du projet propose un bouton de téléchargement par système.
   - MPC ouvre les flux réseau plus lentement que VLC : compter environ 10 s par changement de chaîne avec MPC-BE, contre 1 à 2 s avec VLC.
 - **Bouton ⚙ Paramètres** : fenêtre compacte à **onglets** (Source, Lecture, Interface, Moteur, Chaînes ; Ctrl+Tab pour passer de l'un à l'autre), toujours ajustée à l'écran, réglages **appliqués immédiatement** :
   - source : URL ou fichier de la playlist, rechargement à chaud ;
-  - lecture : cache réseau, décodage matériel (Auto / D3D11VA / DXVA2 / logiciel), désentrelacement (Yadif, Yadif 2x, Bob…), format d'image, synchro audio ;
+  - lecture : cache réseau, décodage matériel (Auto / D3D11VA / DXVA2 / logiciel), désentrelacement (Yadif, Yadif 2x, Bob…), format d'image, synchro audio, pause en différé ;
   - interface : premier plan, reprise de la dernière chaîne, lecture automatique, liste latérale ;
   - chaînes : renommer (F2), masquer (case à cocher), réordonner (▲ ▼ ou Alt+↑/↓), nom d'origine ;
   - moteur : dossier de VLC (détection automatique sinon).
@@ -91,7 +101,8 @@ la page du projet propose un bouton de téléchargement par système.
 | E | Fenêtre Enregistrements |
 | 0-9 | Aller à la chaîne n° (validation auto ou Entrée) |
 | ↑ / ↓, molette sur l'image | Volume |
-| Espace | Pause / lecture |
+| Espace | Pause / lecture (avec la pause en différé : l'émission reprend là où elle s'était arrêtée) |
+| D | Retour au direct (pause en différé) |
 | S | Stop |
 | M | Muet |
 | F, F11, double-clic | Plein écran |

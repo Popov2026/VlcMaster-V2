@@ -17,6 +17,7 @@
  *   guide_data.h  guide TV : mini-lecteur JSON, téléchargement (SiliconDust).
  *   guide_ui.h    fenêtre Guide TV (grille horaire).
  *   mpc.h         moteurs MPC-HC / MPC-BE (API /slave) + interface commune Eng*().
+ *   timeshift.h   pause en différé : serveur local qui garde le direct en mémoire (option).
  *   sched.h       enregistrements programmés depuis le guide (l'appli doit rester ouverte).
  *   record.h      enregistrement (copie du flux en .ts) + fenêtre Enregistrements.
  *   pip.h         image dans l'image (second lecteur libVLC).
@@ -73,7 +74,7 @@
 
 #define APP_NAME L"HomeRun Player"
 #ifndef APP_VER                 /* version du player (comparée aux releases GitHub) */
-#define APP_VER  L"3.8"
+#define APP_VER  L"3.9"
 #endif
 #define INI_NAME L"HomeRunPlayer"
 
@@ -81,7 +82,7 @@
 /* Identifiants                                                        */
 /* ------------------------------------------------------------------ */
 enum { WM_APP_VLCREADY = WM_APP + 1, WM_APP_VLCEVENT, WM_APP_PLAYLIST, WM_APP_WORKERDONE, WM_APP_GUIDE, WM_APP_REC, WM_APP_PIPEVENT, WM_APP_TUNER, WM_APP_SCAN, WM_APP_UPD };
-enum { TMR_FS = 1, TMR_DIGITS, TMR_RETRY, TMR_REPLAY, TMR_FORCEQUIT, TMR_FLASH, TMR_SIZE, TMR_HUD, TMR_GUIDE, TMR_MINUTE, TMR_REC, TMR_MPC, TMR_PIPRETRY, TMR_TRACKS, TMR_UPDCHECK, TMR_SCHED };
+enum { TMR_FS = 1, TMR_DIGITS, TMR_RETRY, TMR_REPLAY, TMR_FORCEQUIT, TMR_FLASH, TMR_SIZE, TMR_HUD, TMR_GUIDE, TMR_MINUTE, TMR_REC, TMR_MPC, TMR_PIPRETRY, TMR_TRACKS, TMR_UPDCHECK, TMR_SCHED, TMR_TS };
 
 enum {
     IDC_HOST = 100, IDC_LIST, IDC_PREV, IDC_NEXT, IDC_PAUSE, IDC_STOP, IDC_VOL,
@@ -93,11 +94,11 @@ enum {
     IDS_DOWN, IDS_RENAME, IDS_ORIGNAME, IDS_SHOWALL, IDS_CLOSE,
     IDS_THIN, IDS_THINBAR, IDS_SIZES, IDS_HUD, IDS_HUDSPIN, IDS_GUIDE,
     IDS_RECDIR, IDS_RECBROWSE, IDS_RECMARGIN, IDS_RECMARGINSPIN,
-    IDS_ENGINE, IDS_MPCPATH, IDS_MPCBROWSE, IDS_TAB, IDS_LANG, IDS_PIPPOS, IDS_PIPSIZE, IDS_PIPSIZESPIN, IDS_SCAN, IDS_TUNERPAGE, IDS_UPDCHK, IDS_UPDNOW,
+    IDS_ENGINE, IDS_MPCPATH, IDS_MPCBROWSE, IDS_TAB, IDS_LANG, IDS_PIPPOS, IDS_PIPSIZE, IDS_PIPSIZESPIN, IDS_SCAN, IDS_TUNERPAGE, IDS_UPDCHK, IDS_UPDNOW, IDS_TIMESHIFT,
 
     IDM_PLAY = 300, IDM_RENAME, IDM_HIDE,
     IDM_ASPECT0 = 400, IDM_DEINT0 = 450,
-    IDM_SIZEDEF = 499, IDM_SIZE0 = 500, IDM_THIN = 600, IDM_MINIMIZE, IDM_QUIT, IDM_GUIDE,
+    IDM_SIZEDEF = 499, IDM_SIZE0 = 500, IDM_THIN = 600, IDM_MINIMIZE, IDM_QUIT, IDM_GUIDE, IDM_TSLIVE,
     IDM_RECEND = 650, IDM_RECINF, IDM_RECCH, IDM_RECDUR0 = 660, IDM_RECSTOP0 = 670,
     IDM_PIPCH = 900, IDM_PIPSWAP, IDM_PIPOFF, IDM_PIPSOUND, IDM_PIPTOGGLE, IDM_PIPSNDMAIN, IDM_PIPSNDPIP, IDM_PIPPOS0 = 910, IDM_PIPSIZE0 = 920,
     IDM_AUD0 = 930, IDM_SPU0 = 970
@@ -155,6 +156,7 @@ static struct {
     wchar_t playlist[2048];
     wchar_t vlcdir[MAX_PATH];
     int caching, hw, deint, aspect, delay, volume, muted;
+    int timeshift;                           /* pause en différé (timeshift.h) */
     int topmost, resume, autoplay, showlist;
     int thin, thinHideBar, sizeIdx, hudSecs;
     int guide; RECT guiderc;
@@ -231,6 +233,7 @@ static struct {
     HWND lblPipPos, pipPos, lblPipSize, pipSize, pipSizeSp;
     HWND tunerInfo, scanBtn, tunerPage, scanInfo;
     HWND updChk, updNow, updInfo;
+    HWND timeshift, tsInfo;
     HWND lv, up, down, rename, orig, showall, hint, close;
 } U;
 static HFONT g_sfont, g_sfontBold;
@@ -397,6 +400,7 @@ static void LoadConfig(void)
     C.delay    = Clamp(IniInt(L"Lecture", L"SynchroAudio", 0), -10000, 10000);
     C.volume   = Clamp(IniInt(L"Lecture", L"Volume", 100), 0, 150);
     C.muted    = IniInt(L"Lecture", L"Muet", 0) != 0;
+    C.timeshift = IniInt(L"Lecture", L"PauseDifferee", 0) != 0;
     C.topmost  = IniInt(L"Interface", L"PremierPlan", 0) != 0;
     C.resume   = IniInt(L"Interface", L"Reprendre", 1) != 0;
     C.autoplay = IniInt(L"Interface", L"LectureAuto", 1) != 0;
@@ -443,6 +447,7 @@ static void SaveConfig(void)
     IniPutInt(L"Lecture", L"SynchroAudio", C.delay);
     IniPutInt(L"Lecture", L"Volume", C.volume);
     IniPutInt(L"Lecture", L"Muet", C.muted);
+    IniPutInt(L"Lecture", L"PauseDifferee", C.timeshift);
     IniPutInt(L"Interface", L"PremierPlan", C.topmost);
     IniPutInt(L"Interface", L"Reprendre", C.resume);
     IniPutInt(L"Interface", L"LectureAuto", C.autoplay);
@@ -862,6 +867,7 @@ static void SetState(const wchar_t *s) { wcsncpy(g_state, s, 95); g_state[95] = 
 static void OnVlcEvent(int type, int val);
 static BOOL CALLBACK DisableProc(HWND h, LPARAM l);
 #include "mpc.h"
+#include "timeshift.h"
 
 /* Demande la lecture de la chaîne courante (ou de l'enregistrement en lecture) au moteur actif. */
 static void RequestPlayCur(void)
@@ -869,16 +875,19 @@ static void RequestPlayCur(void)
     if (!g_fileMode && (g_cur < 0 || g_cur >= g_nch)) return;
     if (g_vlcState != 1) { SetState(g_vlcState == 0 ? TR(L"En attente du lecteur…") : TR(L"Lecteur indisponible")); return; }
     if (g_engine) {
+        TsReset();
         wchar_t u[1024];
         if (g_fileMode) wcsncpy(u, g_file, 1023), u[1023] = 0;
         else Utf8ToW(g_ch[g_cur].url, u, 1024);
         MpcOpen(u);
         return;
     }
+    char url[1024];
+    if (g_fileMode) { TsReset(); WToUtf8(g_file, url, sizeof url); }
+    else TsPlayUrl(g_ch[g_cur].url, url, sizeof url);      /* direct, ou via le différé */
     EnterCriticalSection(&g_cs);
     g_req.has = 1; g_req.stop = 0; g_req.caching = C.caching;
-    if (g_fileMode) WToUtf8(g_file, g_req.url, sizeof g_req.url);
-    else memcpy(g_req.url, g_ch[g_cur].url, sizeof g_req.url);
+    memcpy(g_req.url, url, sizeof g_req.url);
     strncpy(g_req.hw, HW_OPTS[C.hw].val, sizeof g_req.hw - 1);
     LeaveCriticalSection(&g_cs);
     SetEvent(g_wake);
@@ -935,6 +944,7 @@ static void TogglePause(void)
 {
     if (g_vlcState != 1) return;
     if (!g_playing && !g_paused) { g_userStopped = 0; RequestPlayCur(); return; }
+    TsOnPause(!g_paused);            /* différé : début / fin de la pause */
     EngSetPause(!g_paused);
 }
 
@@ -943,6 +953,7 @@ static void StopPlayback(void)
 {
     g_userStopped = 1;
     KillTimer(g_main, TMR_RETRY);
+    TsReset();
     if (g_vlcState != 1) return;
     if (g_engine) { MpcSend(CMD_STOP, NULL); MpcShow(0); OnVlcEvent(EV_Stopped, 0); return; }
     EnterCriticalSection(&g_cs); g_req.has = 1; g_req.stop = 1; LeaveCriticalSection(&g_cs);
@@ -1514,7 +1525,9 @@ static void UpdateStatus(void)
     else if (g_cur >= 0)
     {
         const Prog *pr = ProgAt(GuideForCh(g_cur), NowEpoch(), NULL);
-        swprintf(t, 512, L"%ls%ls   ·   %ls%ls%ls%ls%ls", rec, g_ch[g_cur].name, g_state, g_size[0] ? L"   ·   " : L"", g_size,
+        wchar_t ts[48], tsx[56] = L"";
+        if (TsStatusText(ts, 48)) swprintf(tsx, 56, L"   ·   %ls", ts);   /* différé */
+        swprintf(t, 512, L"%ls%ls   ·   %ls%ls%ls%ls%ls%ls", rec, g_ch[g_cur].name, g_state, tsx, g_size[0] ? L"   ·   " : L"", g_size,
                  pr && pr->title ? L"   ·   " : L"", pr && pr->title ? pr->title : L"");
     }
     else swprintf(t, 512, L"%ls%ls", rec, g_state);
@@ -1831,6 +1844,7 @@ static void ShowVideoMenu(int x, int y)
     HMENU m = CreatePopupMenu(), a = CreatePopupMenu(), dm = CreatePopupMenu();
     PipSoundItems(m);                       /* PIP ouvert : choix de la source du son en premier */
     AppendMenuW(m, MF_STRING | (g_paused ? MF_CHECKED : 0), IDC_PAUSE, TR(L"Pause\tEspace"));
+    if (g_tsOn && (g_tsPauseAt || TsDelayMs() >= 1000)) AppendMenuW(m, MF_STRING, IDM_TSLIVE, TR(L"Retour au direct\tD"));
     AppendMenuW(m, MF_STRING, IDC_STOP, TR(L"Stop\tS"));
     AppendMenuW(m, MF_STRING | (C.muted ? MF_CHECKED : 0), IDC_MUTE, TR(L"Muet\tM"));
     AppendMenuW(m, MF_SEPARATOR, 0, NULL);
@@ -1989,6 +2003,7 @@ static int HandleKey(WPARAM vk)
     case 'B': SetThin(!C.thin); return 1;
     case 'A': SetTopmost(!C.topmost); return 1;
     case 'I': ShowHud(); return 1;
+    case 'D': TsLive(); return 1;
     case 'G': OpenGuide(); return 1;
     case 'T': { SizePreset ps[16]; int n = ParseSizes(ps, 16); if (n) ApplySizePreset((C.sizeIdx + 1) % n); return 1; }
     }
@@ -2038,10 +2053,12 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         PipPlace();
         if (g_hud && IsWindowVisible(g_hud)) HudPlace();
         if (w == SIZE_MINIMIZED) HideHud();
+        TsBadgeUpdate();
         return 0;
     case WM_MOVE:
         if (g_pipOn) PipPlace();
         if (g_hud && IsWindowVisible(g_hud)) HudPlace();
+        TsBadgeUpdate();
         return 0;
 
     case WM_GETMINMAXINFO: {
@@ -2155,6 +2172,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         case IDM_SIZEDEF: OpenSettings(-2); break;
         case IDM_THIN: SetThin(!C.thin); break;
         case IDC_GUIDEBTN: case IDM_GUIDE: OpenGuide(); break;
+        case IDM_TSLIVE: TsLive(); break;
         case IDC_RECBTN: RecToggleCur(); break;
         case IDC_RECLIST: OpenRecordings(); break;
         case IDC_PIPBTN: PipToggle(); break;
@@ -2215,6 +2233,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         case TMR_REC: RecTick(); break;
         case TMR_MPC: MpcTick(); break;
         case TMR_SCHED: SchedTick(); break;
+        case TMR_TS: TsTick(); break;
         case TMR_UPDCHECK:
             SetTimer(h, TMR_UPDCHECK, 12u * 3600u * 1000u, NULL);   /* puis toutes les 12 h */
             if (C.updCheck) UpdCheck(0);
@@ -2306,6 +2325,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         return 0; }
 
     case WM_DESTROY:
+        TsShutdown();      /* différé : segments temporaires effacés */
         if (g_restart) {   /* changement de moteur : relance */
             wchar_t exe[MAX_PATH]; STARTUPINFOW si; PROCESS_INFORMATION pi;
             memset(&si, 0, sizeof si); si.cb = sizeof si;
@@ -2368,6 +2388,9 @@ static int LayoutSettings(int W, int H, BOOL apply)
     ROW(U.lblDeint, U.deint, cw, 1);
     ROW(U.lblAsp, U.aspect, cw, 1);
     ROW(U.lblDelay, U.delay, SS(110), 0);
+    y += SS(10);
+    P(U.timeshift, x, y, lw, rh); y += rh + SS(2);
+    P(U.tsInfo, x + SS(18), y, lw - SS(18), lh * 3 + SS(4)); y += lh * 3 + SS(4);
 
     PAGE(2);                                          /* Interface */
     HDR(2);
@@ -2488,6 +2511,7 @@ static void SettingsSync(void)
     Button_SetCheck(U.topmost, C.topmost ? BST_CHECKED : BST_UNCHECKED);
     Button_SetCheck(U.resume, C.resume ? BST_CHECKED : BST_UNCHECKED);
     Button_SetCheck(U.autoplay, C.autoplay ? BST_CHECKED : BST_UNCHECKED);
+    Button_SetCheck(U.timeshift, C.timeshift ? BST_CHECKED : BST_UNCHECKED);
     Button_SetCheck(U.showlist, C.showlist ? BST_CHECKED : BST_UNCHECKED);
     Button_SetCheck(U.thin, C.thin ? BST_CHECKED : BST_UNCHECKED);
     Button_SetCheck(U.thinbar, C.thinHideBar ? BST_CHECKED : BST_UNCHECKED);
@@ -2518,7 +2542,7 @@ static void SettingsSync(void)
         wcscpy(C.mpcPath, keep);
         SendMessageW(U.mpcPath, EM_SETCUEBANNER, TRUE, (LPARAM)(det[0] ? det : C.engine ? TR(L"non trouvé") : L""));
         int v = C.engine == ENG_VLC;
-        HWND vo[] = { U.cache, U.cacheSp, U.hw, U.deint, U.aspect, U.vlcdir, U.vlcBr };
+        HWND vo[] = { U.cache, U.cacheSp, U.hw, U.deint, U.aspect, U.vlcdir, U.vlcBr, U.timeshift };
         for (int i = 0; i < (int)(sizeof vo / sizeof vo[0]); i++) EnableWindow(vo[i], v);
         EnableWindow(U.mpcPath, !v); EnableWindow(U.mpcBr, !v);
         if (C.engine != g_engine) {
@@ -2629,6 +2653,8 @@ static void CreateSettingsControls(HWND h)
     U.updChk  = Mk(h, WC_BUTTONW, TR(L"Vérifier au démarrage si une nouvelle version de HomeRun Player est disponible"), BS_AUTOCHECKBOX | WS_TABSTOP, 0, IDS_UPDCHK);
     U.updNow  = Mk(h, WC_BUTTONW, TR(L"Vérifier maintenant"), BS_PUSHBUTTON | WS_TABSTOP, 0, IDS_UPDNOW);
     U.updInfo = Mk(h, WC_STATICW, L"", SS_LEFT | SS_NOPREFIX | SS_ENDELLIPSIS, 0, -1);
+    U.timeshift = Mk(h, WC_BUTTONW, TR(L"Pause en différé : la pause garde le direct en mémoire (30 min au plus)"), BS_AUTOCHECKBOX | WS_TABSTOP, 0, IDS_TIMESHIFT);
+    U.tsInfo    = Mk(h, WC_STATICW, TR(L"À la reprise, l'émission continue là où vous l'aviez arrêtée. Un compteur indique le retard sur le direct ; touche D ou clic sur le compteur : retour au direct. Mémoire dans un fichier temporaire, effacé au fur et à mesure. Moteur VLC seulement."), SS_LEFT | SS_NOPREFIX, 0, -1);
     U.lblVlc  = Mk(h, WC_STATICW, TR(L"Dossier de VLC 64 bits (vide = détection automatique) :"), SS_LEFT | SS_ENDELLIPSIS, 0, -1);
     U.vlcdir  = Mk(h, WC_EDITW, L"", ES_AUTOHSCROLL | WS_TABSTOP, WS_EX_CLIENTEDGE, IDS_VLCDIR);
     U.vlcBr   = Mk(h, WC_BUTTONW, L"…", BS_PUSHBUTTON | WS_TABSTOP, 0, IDS_VLCBROWSE);
@@ -2783,6 +2809,11 @@ static void SettingsCommand(HWND h, int id, int code)
     case IDS_TOPMOST:  C.topmost  = Button_GetCheck(U.topmost) == BST_CHECKED; ApplyTopmost(); break;
     case IDS_RESUME:   C.resume   = Button_GetCheck(U.resume) == BST_CHECKED; break;
     case IDS_AUTOPLAY: C.autoplay = Button_GetCheck(U.autoplay) == BST_CHECKED; break;
+    case IDS_TIMESHIFT:
+        C.timeshift = Button_GetCheck(U.timeshift) == BST_CHECKED;
+        /* Chaîne en cours : on la rouvre tout de suite par le bon chemin (direct ou différé). */
+        if (!g_fileMode && !g_engine && g_cur >= 0 && (g_playing || g_paused) && C.timeshift != g_tsOn) RequestPlayCur();
+        break;
     case IDS_SHOWLIST: C.showlist = Button_GetCheck(U.showlist) == BST_CHECKED; LayoutMain(); break;
     case IDS_GUIDE:
         C.guide = Button_GetCheck(U.guideChk) == BST_CHECKED;
@@ -3115,6 +3146,7 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE prev, PWSTR cmd, int show)
     if (g_hud) SetLayeredWindowAttributes(g_hud, 0, 225, LWA_ALPHA);
     PipCreate(h);                     /* avant libVLC : le second lecteur y dessine */
     BannerCreate(h);
+    TsCreate(h);                      /* pastille du différé */
     SchedLoad();
     SetTimer(h, TMR_SCHED, 15000, NULL);      /* enregistrements programmés */
     SetTimer(h, TMR_UPDCHECK, 4000, NULL);   /* nouvelle version ? (si activé) */
