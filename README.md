@@ -123,6 +123,9 @@ la page du projet propose un bouton de téléchargement par système.
 
 Prérequis : **VLC 3.x 64 bits** installé (https://www.videolan.org).
 L'appli trouve VLC toute seule (registre, `Program Files`, dossier de l'exe ou sous-dossier `vlc\`).
+**VLC absent ?** L'image affiche un bouton **Télécharger VLC (gratuit)** (page officielle de VideoLAN) et un bouton
+**Réessayer** ; une fois VLC installé, il suffit de revenir dans HomeRun Player : il est détecté automatiquement, sans redémarrer.
+Le même bouton se trouve dans ⚙ Paramètres › Moteur.
 Avec la version « zip » de VLC, il suffit d'indiquer son dossier dans ⚙ Paramètres → *Moteur VLC*.
 Au premier lancement d'un VLC portable, le cache des plugins (`plugins\plugins.dat`) est créé :
 les démarrages suivants sont quasi instantanés.

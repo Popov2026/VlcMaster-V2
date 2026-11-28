@@ -74,7 +74,7 @@
 
 #define APP_NAME L"HomeRun Player"
 #ifndef APP_VER                 /* version du player (comparée aux releases GitHub) */
-#define APP_VER  L"3.9"
+#define APP_VER  L"3.9.1"
 #endif
 #define INI_NAME L"HomeRunPlayer"
 
@@ -87,6 +87,7 @@ enum { TMR_FS = 1, TMR_DIGITS, TMR_RETRY, TMR_REPLAY, TMR_FORCEQUIT, TMR_FLASH, 
 enum {
     IDC_HOST = 100, IDC_LIST, IDC_PREV, IDC_NEXT, IDC_PAUSE, IDC_STOP, IDC_VOL,
     IDC_MUTE, IDC_STATUS, IDC_CHANS, IDC_FULL, IDC_SETTINGS, IDC_SIZEBTN, IDC_TOPBTN, IDC_GUIDEBTN, IDC_RECBTN, IDC_RECLIST, IDC_PIPBTN, IDC_LANGBTN,
+    IDC_VLCDL, IDC_VLCRETRY,                     /* boutons de la zone vidéo quand VLC est introuvable */
 
     IDS_URL = 200, IDS_URLBROWSE, IDS_RELOAD, IDS_CACHE, IDS_CACHESPIN, IDS_HW,
     IDS_DEINT, IDS_ASPECT, IDS_DELAY, IDS_DELAYSPIN, IDS_TOPMOST, IDS_RESUME,
@@ -94,7 +95,7 @@ enum {
     IDS_DOWN, IDS_RENAME, IDS_ORIGNAME, IDS_SHOWALL, IDS_CLOSE,
     IDS_THIN, IDS_THINBAR, IDS_SIZES, IDS_HUD, IDS_HUDSPIN, IDS_GUIDE,
     IDS_RECDIR, IDS_RECBROWSE, IDS_RECMARGIN, IDS_RECMARGINSPIN,
-    IDS_ENGINE, IDS_MPCPATH, IDS_MPCBROWSE, IDS_TAB, IDS_LANG, IDS_PIPPOS, IDS_PIPSIZE, IDS_PIPSIZESPIN, IDS_SCAN, IDS_TUNERPAGE, IDS_UPDCHK, IDS_UPDNOW, IDS_TIMESHIFT,
+    IDS_ENGINE, IDS_MPCPATH, IDS_MPCBROWSE, IDS_TAB, IDS_LANG, IDS_PIPPOS, IDS_PIPSIZE, IDS_PIPSIZESPIN, IDS_SCAN, IDS_TUNERPAGE, IDS_UPDCHK, IDS_UPDNOW, IDS_TIMESHIFT, IDS_VLCDL,
 
     IDM_PLAY = 300, IDM_RENAME, IDM_HIDE,
     IDM_ASPECT0 = 400, IDM_DEINT0 = 450,
@@ -227,7 +228,7 @@ static struct {
     HWND thin, thinbar, lblSizes, sizes, lblHud, hud, hudSp;
     HWND guideChk, guideInfo;
     HWND lblRec, recdir, recBr, lblMargin, margin, marginSp;
-    HWND lblVlc, vlcdir, vlcBr, vlcInfo;
+    HWND lblVlc, vlcdir, vlcBr, vlcInfo, vlcDl;
     HWND lblEng, engine, lblMpc, mpcPath, mpcBr;
     HWND tab, lblLang, lang;
     HWND lblPipPos, pipPos, lblPipSize, pipSize, pipSizeSp;
@@ -845,11 +846,61 @@ static void PipResume(void);
 static void PipOff(void);
 static void TunerRefresh(void);
 
+/* ------------------------------------------------------------------ */
+/* VLC absent : boutons « Télécharger VLC » et « Réessayer »          */
+/* ------------------------------------------------------------------ */
+#define VLC_DL_URL L"https://www.videolan.org/vlc/download-windows.html"
+static HWND g_vlcDlBtn, g_vlcRetryBtn;
+static int  g_engine;                      /* moteur effectif, 0 = VLC (défini dans mpc.h) */
+static int  g_hostTextTop = -1;            /* haut du message quand les boutons sont affichés */
+
+/* Page officielle de téléchargement de VLC pour Windows (64 bits par défaut). */
+static void OpenVlcDownload(HWND owner) { ShellExecuteW(owner, L"open", VLC_DL_URL, NULL, NULL, SW_SHOWNORMAL); }
+
+/* Place (ou cache) les boutons sous le message, au centre de la zone vidéo. */
+static void HostButtonsLayout(void)
+{
+    if (!g_host || !g_vlcDlBtn) return;
+    int show = g_vlcState == -1 && !g_engine;
+    g_hostTextTop = -1;
+    if (!show) { ShowWindow(g_vlcDlBtn, SW_HIDE); ShowWindow(g_vlcRetryBtn, SW_HIDE); return; }
+    RECT rc; GetClientRect(g_host, &rc);
+    HDC dc = GetDC(g_host); HGDIOBJ of = SelectObject(dc, g_fontBig);
+    RECT c = rc; InflateRect(&c, -S(24), 0);
+    DrawTextW(dc, g_hostMsg, -1, &c, DT_CENTER | DT_WORDBREAK | DT_CALCRECT | DT_NOPREFIX);
+    SelectObject(dc, of); ReleaseDC(g_host, dc);
+    int th = c.bottom - c.top, bh = S(36), gap = S(22), w1 = S(250), w2 = S(150), sp = S(12);
+    int top = (rc.bottom - (th + gap + bh)) / 2; if (top < S(8)) top = S(8);
+    g_hostTextTop = top;
+    int bx = (rc.right - (w1 + sp + w2)) / 2, by = top + th + gap;
+    SetWindowPos(g_vlcDlBtn, HWND_TOP, bx, by, w1, bh, SWP_SHOWWINDOW | SWP_NOACTIVATE);
+    SetWindowPos(g_vlcRetryBtn, HWND_TOP, bx + w1 + sp, by, w2, bh, SWP_SHOWWINDOW | SWP_NOACTIVATE);
+}
+
 /* Texte affiché au centre de la zone vidéo quand rien n'est lu. */
 static void SetHostMsg(const wchar_t *m)
 {
-    wcsncpy(g_hostMsg, m, 511); g_hostMsg[511] = 0;
+    if (m != g_hostMsg) { wcsncpy(g_hostMsg, m, 511); g_hostMsg[511] = 0; }
+    HostButtonsLayout();
     if (g_host) InvalidateRect(g_host, NULL, FALSE);
+}
+
+/* VLC introuvable : message + boutons. */
+static void ShowVlcMissing(void)
+{
+    wchar_t t[512];
+    swprintf(t, 512, L"%ls\n\n%ls", g_vlcInfo,
+             TR(L"HomeRun Player utilise VLC (gratuit) pour afficher l'image. Téléchargez-le et installez-le, puis revenez ici : il sera détecté automatiquement."));
+    SetHostMsg(t);
+}
+
+static void StartVlc(void);
+/* Nouvel essai de chargement de libVLC (après l'installation de VLC). */
+static void RetryVlc(int quiet)
+{
+    if (g_vlcState != -1 || g_workerAlive || g_engine) return;
+    StartVlc();
+    if (!quiet) SetHostMsg(TR(L"Chargement de libVLC…"));
 }
 
 /* Message éphémère (1,5 s) dans la barre d'état et le HUD. */
@@ -971,7 +1022,7 @@ static void PlayChannel(int i)
     for (int v = 0; v < g_nvis; v++)
         if (g_vis[v] == (PipHasSound() ? g_pipCh : i)) { SendMessageW(g_list, LB_SETCURSEL, (WPARAM)v, 0); break; }
     wchar_t m[256]; swprintf(m, 256, TR(L"Ouverture de « %ls »…"), g_ch[i].name);
-    SetHostMsg(g_vlcState == -1 ? g_vlcInfo : m);
+    if (g_vlcState == -1 && !g_engine) ShowVlcMissing(); else SetHostMsg(g_vlcState == -1 ? g_vlcInfo : m);
     g_size[0] = 0;
     SetState(TR(L"Ouverture…"));
     RequestPlayCur();
@@ -1921,7 +1972,8 @@ static LRESULT CALLBACK HostProc(HWND h, UINT msg, WPARAM w, LPARAM l)
             HGDIOBJ of = SelectObject(dc, g_fontBig);
             RECT t = rc; InflateRect(&t, -S(24), 0);
             RECT c = t; DrawTextW(dc, g_hostMsg, -1, &c, DT_CENTER | DT_WORDBREAK | DT_CALCRECT | DT_NOPREFIX);
-            t.top = (rc.bottom - (c.bottom - c.top)) / 2; t.bottom = t.top + (c.bottom - c.top);
+            t.top = g_hostTextTop >= 0 ? g_hostTextTop : (rc.bottom - (c.bottom - c.top)) / 2;   /* boutons VLC dessous */
+            t.bottom = t.top + (c.bottom - c.top);
             DrawTextW(dc, g_hostMsg, -1, &t, DT_CENTER | DT_WORDBREAK | DT_NOPREFIX);
             SelectObject(dc, of);
         }
@@ -1950,7 +2002,11 @@ static LRESULT CALLBACK HostProc(HWND h, UINT msg, WPARAM w, LPARAM l)
     case WM_LBUTTONDBLCLK: SetFullscreen(!g_full); return 0;
     case WM_RBUTTONUP: { POINT p = { GET_X_LPARAM(l), GET_Y_LPARAM(l) }; ClientToScreen(h, &p); ShowVideoMenu(p.x, p.y); return 0; }
     case WM_MOUSEWHEEL: SetVolume(C.volume + (GET_WHEEL_DELTA_WPARAM(w) > 0 ? 5 : -5)); return 0;
-    case WM_SIZE: InvalidateRect(h, NULL, FALSE); if (g_mpcWnd) MpcFit(); if (g_pipOn) PipPlace(); return 0;
+    case WM_SIZE: InvalidateRect(h, NULL, FALSE); if (g_mpcWnd) MpcFit(); if (g_pipOn) PipPlace(); HostButtonsLayout(); return 0;
+    case WM_COMMAND:
+        if (LOWORD(w) == IDC_VLCDL) { OpenVlcDownload(g_main); return 0; }
+        if (LOWORD(w) == IDC_VLCRETRY) { RetryVlc(0); return 0; }
+        break;
     }
     return DefWindowProcW(h, msg, w, l);
 }
@@ -2020,6 +2076,9 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         g_dpi = GetDpiForWindow(h);
         g_host = CreateWindowExW(0, L"VlcMasterVideo", NULL, WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN,
                                  0, 0, 10, 10, h, (HMENU)(INT_PTR)IDC_HOST, g_hi, NULL);
+        g_vlcDlBtn    = Mk(g_host, WC_BUTTONW, TR(L"Télécharger VLC (gratuit)"), BS_PUSHBUTTON, 0, IDC_VLCDL);
+        g_vlcRetryBtn = Mk(g_host, WC_BUTTONW, TR(L"Réessayer"), BS_PUSHBUTTON, 0, IDC_VLCRETRY);
+        ShowWindow(g_vlcDlBtn, SW_HIDE); ShowWindow(g_vlcRetryBtn, SW_HIDE);
         g_list = Mk(h, WC_LISTBOXW, NULL, LBS_NOTIFY | LBS_NOINTEGRALHEIGHT | LBS_OWNERDRAWFIXED | LBS_HASSTRINGS | WS_VSCROLL | WS_TABSTOP, 0, IDC_LIST);
         SetWindowTheme(g_list, L"Explorer", NULL);
         SetWindowSubclass(g_list, ListSubProc, 1, 0);
@@ -2083,6 +2142,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
 
     case WM_ACTIVATE:
         if (ThinFrame()) InvalidateRect(h, NULL, TRUE);   /* couleur du liseré */
+        if (LOWORD(w) != WA_INACTIVE) RetryVlc(1);         /* retour dans l'appli après avoir installé VLC */
         break;
 
     case WM_NCHITTEST:
@@ -2261,6 +2321,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
     case WM_APP_VLCREADY:
         if (w) {
             g_vlcState = 1;
+            HostButtonsLayout();                       /* VLC trouvé : plus de boutons */
             ApplyAudio(); ApplyVideoOpts();
             if (g_quitting) break;
             if (g_cur >= 0) PlayChannel(g_cur);
@@ -2269,7 +2330,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         } else {
             g_vlcState = -1; g_workerAlive = 0;
             if (g_quitting) { DestroyWindow(h); return 0; }
-            SetHostMsg(g_vlcInfo);
+            ShowVlcMissing();                          /* message + Télécharger VLC / Réessayer */
             SetState(TR(L"VLC indisponible"));
         }
         SettingsSync();
@@ -2423,7 +2484,8 @@ static int LayoutSettings(int W, int H, BOOL apply)
     P(U.lblMpc, x, y, lw, lh); y += lh + SS(4);
     P(U.mpcPath, x, y, lw - SS(34) - sp, rh);
     P(U.mpcBr, x + lw - SS(34), y, SS(34), rh); y += rh + SS(8);
-    P(U.vlcInfo, x, y, lw, lh * 3); y += lh * 3;
+    P(U.vlcInfo, x, y, lw, lh * 3); y += lh * 3 + SS(6);
+    P(U.vlcDl, x, y, SS(250), rh); y += rh;
 
     int closeY = H - m - rh;
     PAGE(4);                                          /* Chaînes : toute la largeur */
@@ -2658,6 +2720,7 @@ static void CreateSettingsControls(HWND h)
     U.lblVlc  = Mk(h, WC_STATICW, TR(L"Dossier de VLC 64 bits (vide = détection automatique) :"), SS_LEFT | SS_ENDELLIPSIS, 0, -1);
     U.vlcdir  = Mk(h, WC_EDITW, L"", ES_AUTOHSCROLL | WS_TABSTOP, WS_EX_CLIENTEDGE, IDS_VLCDIR);
     U.vlcBr   = Mk(h, WC_BUTTONW, L"…", BS_PUSHBUTTON | WS_TABSTOP, 0, IDS_VLCBROWSE);
+    U.vlcDl   = Mk(h, WC_BUTTONW, TR(L"Télécharger VLC (gratuit)…"), BS_PUSHBUTTON | WS_TABSTOP, 0, IDS_VLCDL);
     U.vlcInfo = Mk(h, WC_STATICW, L"", SS_LEFT | SS_NOPREFIX, 0, -1);
     U.lblEng  = Mk(h, WC_STATICW, TR(L"Moteur"), SS_LEFT, 0, -1);
     U.engine  = Mk(h, WC_COMBOBOXW, NULL, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 0, IDS_ENGINE);
@@ -2809,6 +2872,7 @@ static void SettingsCommand(HWND h, int id, int code)
     case IDS_TOPMOST:  C.topmost  = Button_GetCheck(U.topmost) == BST_CHECKED; ApplyTopmost(); break;
     case IDS_RESUME:   C.resume   = Button_GetCheck(U.resume) == BST_CHECKED; break;
     case IDS_AUTOPLAY: C.autoplay = Button_GetCheck(U.autoplay) == BST_CHECKED; break;
+    case IDS_VLCDL: OpenVlcDownload(g_set); break;
     case IDS_TIMESHIFT:
         C.timeshift = Button_GetCheck(U.timeshift) == BST_CHECKED;
         /* Chaîne en cours : on la rouvre tout de suite par le bon chemin (direct ou différé). */

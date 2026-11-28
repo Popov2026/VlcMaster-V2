@@ -453,3 +453,14 @@
     L"Beim Fortsetzen läuft die Sendung dort weiter, wo Sie angehalten haben. Ein Zähler zeigt den Rückstand zum Live-Bild; Taste D oder Klick auf den Zähler: zurück zum Live-Bild. Gespeichert in einer temporären Datei, die laufend gelöscht wird. Nur VLC-Engine.",
     L"Alla ripresa, il programma continua da dove l'avevate fermato. Un contatore indica il ritardo sulla diretta; tasto D o clic sul contatore: torna alla diretta. Memoria in un file temporaneo, cancellato man mano. Solo motore VLC.",
     L"Ao retomar, o programa continua onde o parou. Um contador indica o atraso em relação ao direto; tecla D ou clique no contador: voltar ao direto. Guardado num ficheiro temporário, apagado à medida. Só motor VLC." } },
+
+/* ---- VLC absent : téléchargement ---- */
+{ { L"Télécharger VLC (gratuit)", L"Download VLC (free)", L"Descargar VLC (gratis)", L"VLC herunterladen (kostenlos)", L"Scarica VLC (gratis)", L"Transferir o VLC (grátis)" } },
+{ { L"Télécharger VLC (gratuit)…", L"Download VLC (free)…", L"Descargar VLC (gratis)…", L"VLC herunterladen (kostenlos)…", L"Scarica VLC (gratis)…", L"Transferir o VLC (grátis)…" } },
+{ { L"Réessayer", L"Try again", L"Reintentar", L"Erneut versuchen", L"Riprova", L"Tentar de novo" } },
+{ { L"HomeRun Player utilise VLC (gratuit) pour afficher l'image. Téléchargez-le et installez-le, puis revenez ici : il sera détecté automatiquement.",
+    L"HomeRun Player uses VLC (free) to show the picture. Download and install it, then come back here: it will be detected automatically.",
+    L"HomeRun Player usa VLC (gratuito) para mostrar la imagen. Descárguelo e instálelo, y vuelva aquí: se detectará automáticamente.",
+    L"HomeRun Player zeigt das Bild mit VLC (kostenlos) an. Laden Sie es herunter, installieren Sie es und kehren Sie hierher zurück: Es wird automatisch erkannt.",
+    L"HomeRun Player usa VLC (gratuito) per mostrare l'immagine. Scaricatelo e installatelo, poi tornate qui: verrà rilevato automaticamente.",
+    L"O HomeRun Player usa o VLC (gratuito) para mostrar a imagem. Transfira-o e instale-o, depois volte aqui: será detetado automaticamente." } },
