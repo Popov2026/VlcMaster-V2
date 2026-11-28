@@ -131,6 +131,9 @@
   <li><strong>Live TV in the window</strong>: the picture is drawn inside the application, with hardware decoding. Channels are read
     automatically from your tuner's <code>lineup.m3u</code> (names and numbers); zapping is instant with <kbd>←</kbd> <kbd>→</kbd>,
     the mouse wheel or by typing the channel number.</li>
+  <li><strong>IPTV playlists</strong> (http or https): when a playlist sorts its channels into groups (<code>group-title</code>, such as
+    countries), a menu above the channel list shows one group at a time, and links to YouTube, Dailymotion or Twitch pages, which VLC
+    usually cannot play, are hidden.</li>
   <li><strong>TV guide</strong> (automatic with an HDHomeRun, about a day ahead): a time grid window, the programme now on air under
     each channel with a progress bar, and the current and next programme in the on-screen display.</li>
   <li><strong>Recording</strong>: <span class="rec">●</span> Record saves the channel until the end of the programme (from the guide, plus
@@ -241,8 +244,9 @@
 <h2>How to use it</h2>
 <h3>First start</h3>
 <ol>
-  <li>Open <strong>⚙ Settings</strong> (<kbd>P</kbd>) › <strong>Source</strong> and enter your tuner's playlist address, for example
-    <code>http://192.168.1.90/lineup.m3u</code> (the IP address of your HDHomeRun), then <strong>Reload</strong>.</li>
+  <li>Open <strong>⚙ Settings</strong> (<kbd>P</kbd>) › <strong>Source</strong> and click <strong>Detect HDHomeRun</strong>: the program finds
+    the tuner on your local network and fills in its playlist address (a menu lets you choose if you have several). You can also type it
+    yourself, for example <code>http://192.168.1.90/lineup.m3u</code> (the IP address of your HDHomeRun), then <strong>Reload</strong>.</li>
   <li>The channels appear in the list on the right: click one to watch it. The last channel is resumed at the next start.</li>
   <li>The TV guide loads by itself after a few seconds.</li>
 </ol>
@@ -380,7 +384,7 @@
 <p>Il faut VLC 3.x 64 bits (ou MPC-HC / MPC-BE 64 bits) ; s'il manque, l'appli affiche un bouton <em>Télécharger VLC (gratuit)</em>
   et le détecte toute seule une fois installé. Téléchargez le zip de la
   <a href="https://github.com/Popov2026/VlcMaster-V2/releases/latest">dernière version</a>, dézippez-le et lancez
-  <code>HomeRunPlayer.exe</code>, puis indiquez l'adresse de votre <code>lineup.m3u</code> dans ⚙ Paramètres › Source.
+  <code>HomeRunPlayer.exe</code>, puis cliquez sur <em>Détecter le HDHomeRun</em> dans ⚙ Paramètres › Source (ou indiquez l'adresse de votre <code>lineup.m3u</code>).
   Chaque bouton ci-dessous télécharge la version pour votre système :</p>
 <ul>
   <li><strong>Linux</strong> (Debian 13, Ubuntu 24.04, Mint 22 ou plus récent) : <code>sudo apt install ./HomeRunPlayer-*-linux-amd64.deb</code>

@@ -22,6 +22,7 @@
  *   record.h      enregistrement (copie du flux en .ts) + fenêtre Enregistrements.
  *   pip.h         image dans l'image (second lecteur libVLC).
  *   tracks.h      langues audio et sous-titres.
+ *   discover.h    bouton « Détecter » : HDHomeRun du réseau local (UDP 65001).
  *   tuner.h       infos du HDHomeRun, firmware, scan des chaînes.
  *   update.h      vérification des nouvelles versions + bandeau.
  *
@@ -74,20 +75,21 @@
 
 #define APP_NAME L"HomeRun Player"
 #ifndef APP_VER                 /* version du player (comparée aux releases GitHub) */
-#define APP_VER  L"3.9.1"
+#define APP_VER  L"3.10"
 #endif
 #define INI_NAME L"HomeRunPlayer"
 
 /* ------------------------------------------------------------------ */
 /* Identifiants                                                        */
 /* ------------------------------------------------------------------ */
-enum { WM_APP_VLCREADY = WM_APP + 1, WM_APP_VLCEVENT, WM_APP_PLAYLIST, WM_APP_WORKERDONE, WM_APP_GUIDE, WM_APP_REC, WM_APP_PIPEVENT, WM_APP_TUNER, WM_APP_SCAN, WM_APP_UPD };
+enum { WM_APP_VLCREADY = WM_APP + 1, WM_APP_VLCEVENT, WM_APP_PLAYLIST, WM_APP_WORKERDONE, WM_APP_GUIDE, WM_APP_REC, WM_APP_PIPEVENT, WM_APP_TUNER, WM_APP_SCAN, WM_APP_UPD, WM_APP_DISC };
 enum { TMR_FS = 1, TMR_DIGITS, TMR_RETRY, TMR_REPLAY, TMR_FORCEQUIT, TMR_FLASH, TMR_SIZE, TMR_HUD, TMR_GUIDE, TMR_MINUTE, TMR_REC, TMR_MPC, TMR_PIPRETRY, TMR_TRACKS, TMR_UPDCHECK, TMR_SCHED, TMR_TS };
 
 enum {
     IDC_HOST = 100, IDC_LIST, IDC_PREV, IDC_NEXT, IDC_PAUSE, IDC_STOP, IDC_VOL,
     IDC_MUTE, IDC_STATUS, IDC_CHANS, IDC_FULL, IDC_SETTINGS, IDC_SIZEBTN, IDC_TOPBTN, IDC_GUIDEBTN, IDC_RECBTN, IDC_RECLIST, IDC_PIPBTN, IDC_LANGBTN,
     IDC_VLCDL, IDC_VLCRETRY,                     /* boutons de la zone vidéo quand VLC est introuvable */
+    IDC_GROUP,                                   /* filtre par groupe (group-title) au-dessus de la liste */
 
     IDS_URL = 200, IDS_URLBROWSE, IDS_RELOAD, IDS_CACHE, IDS_CACHESPIN, IDS_HW,
     IDS_DEINT, IDS_ASPECT, IDS_DELAY, IDS_DELAYSPIN, IDS_TOPMOST, IDS_RESUME,
@@ -95,9 +97,9 @@ enum {
     IDS_DOWN, IDS_RENAME, IDS_ORIGNAME, IDS_SHOWALL, IDS_CLOSE,
     IDS_THIN, IDS_THINBAR, IDS_SIZES, IDS_HUD, IDS_HUDSPIN, IDS_GUIDE,
     IDS_RECDIR, IDS_RECBROWSE, IDS_RECMARGIN, IDS_RECMARGINSPIN,
-    IDS_ENGINE, IDS_MPCPATH, IDS_MPCBROWSE, IDS_TAB, IDS_LANG, IDS_PIPPOS, IDS_PIPSIZE, IDS_PIPSIZESPIN, IDS_SCAN, IDS_TUNERPAGE, IDS_UPDCHK, IDS_UPDNOW, IDS_TIMESHIFT, IDS_VLCDL,
+    IDS_ENGINE, IDS_MPCPATH, IDS_MPCBROWSE, IDS_TAB, IDS_LANG, IDS_PIPPOS, IDS_PIPSIZE, IDS_PIPSIZESPIN, IDS_SCAN, IDS_TUNERPAGE, IDS_UPDCHK, IDS_UPDNOW, IDS_TIMESHIFT, IDS_VLCDL, IDS_DETECT,
 
-    IDM_PLAY = 300, IDM_RENAME, IDM_HIDE,
+    IDM_PLAY = 300, IDM_RENAME, IDM_HIDE, IDM_SHOWWEB,
     IDM_ASPECT0 = 400, IDM_DEINT0 = 450,
     IDM_SIZEDEF = 499, IDM_SIZE0 = 500, IDM_THIN = 600, IDM_MINIMIZE, IDM_QUIT, IDM_GUIDE, IDM_TSLIVE,
     IDM_RECEND = 650, IDM_RECINF, IDM_RECCH, IDM_RECDUR0 = 660, IDM_RECSTOP0 = 670,
@@ -151,6 +153,8 @@ typedef struct {
     char    url[1024];      /* MRL UTF-8                     */
     unsigned long long key; /* hash de l'URL (persistance)   */
     int hidden, order, src;
+    wchar_t group[64];      /* group-title de la playlist (pays, thème…), vide si aucun */
+    int web;                /* lien de page web (YouTube, Dailymotion, Twitch) : souvent illisible */
 } Channel;
 
 static struct {
@@ -158,6 +162,7 @@ static struct {
     wchar_t vlcdir[MAX_PATH];
     int caching, hw, deint, aspect, delay, volume, muted;
     int timeshift;                           /* pause en différé (timeshift.h) */
+    wchar_t group[64]; int showWeb;          /* filtre de la liste : groupe choisi (vide = tous), liens web */
     int topmost, resume, autoplay, showlist;
     int thin, thinHideBar, sizeIdx, hudSecs;
     int guide; RECT guiderc;
@@ -222,7 +227,7 @@ static int HudCh(void)       { return PipHasSound() ? g_pipCh : g_cur; }     /* 
 /* fenêtre paramètres */
 static struct {
     HWND hdr[5], line[5];
-    HWND lblUrl, url, urlBr, reload;
+    HWND lblUrl, url, urlBr, reload, detect;
     HWND lblCache, cache, cacheSp, lblHw, hw, lblDeint, deint, lblAsp, aspect, lblDelay, delay, delaySp;
     HWND topmost, resume, autoplay, showlist;
     HWND thin, thinbar, lblSizes, sizes, lblHud, hud, hudSp;
@@ -402,6 +407,8 @@ static void LoadConfig(void)
     C.volume   = Clamp(IniInt(L"Lecture", L"Volume", 100), 0, 150);
     C.muted    = IniInt(L"Lecture", L"Muet", 0) != 0;
     C.timeshift = IniInt(L"Lecture", L"PauseDifferee", 0) != 0;
+    GetPrivateProfileStringW(L"Interface", L"Groupe", L"", C.group, 64, g_ini);
+    C.showWeb  = IniInt(L"Interface", L"LiensWeb", 0) != 0;
     C.topmost  = IniInt(L"Interface", L"PremierPlan", 0) != 0;
     C.resume   = IniInt(L"Interface", L"Reprendre", 1) != 0;
     C.autoplay = IniInt(L"Interface", L"LectureAuto", 1) != 0;
@@ -449,6 +456,8 @@ static void SaveConfig(void)
     IniPutInt(L"Lecture", L"Volume", C.volume);
     IniPutInt(L"Lecture", L"Muet", C.muted);
     IniPutInt(L"Lecture", L"PauseDifferee", C.timeshift);
+    WritePrivateProfileStringW(L"Interface", L"Groupe", C.group, g_ini);
+    IniPutInt(L"Interface", L"LiensWeb", C.showWeb);
     IniPutInt(L"Interface", L"PremierPlan", C.topmost);
     IniPutInt(L"Interface", L"Reprendre", C.resume);
     IniPutInt(L"Interface", L"LectureAuto", C.autoplay);
@@ -559,7 +568,18 @@ static char *ReadLocal(const wchar_t *path, size_t *len, wchar_t *err)
 }
 
 /* Ajoute une chaîne au résultat de l'analyse de la playlist (tableau agrandi au besoin). */
-static void AddCh(PlResult *r, int *cap, const char *name, const char *num, const char *url)
+/* Lien vers une page de site vidéo (pas un flux) : libVLC ne sait généralement pas le lire. */
+static int IsWebLink(const char *url)
+{
+    static const char *hosts[] = { "youtube.com", "youtu.be", "dailymotion.com", "dai.ly", "twitch.tv" };
+    char low[256]; int i = 0;
+    for (; url[i] && i < 255; i++) low[i] = (char)tolower((unsigned char)url[i]);
+    low[i] = 0;
+    for (int k = 0; k < (int)(sizeof hosts / sizeof hosts[0]); k++) if (strstr(low, hosts[k])) return 1;
+    return 0;
+}
+
+static void AddCh(PlResult *r, int *cap, const char *name, const char *num, const char *url, const char *group)
 {
     if (r->n >= *cap) {
         int nc = *cap ? *cap * 2 : 64;
@@ -573,6 +593,8 @@ static void AddCh(PlResult *r, int *cap, const char *name, const char *num, cons
     Utf8ToW(name && *name ? name : url, c->orig, 128);
     wcscpy(c->name, c->orig);
     Utf8ToW(num ? num : "", c->num, 16);
+    Utf8ToW(group ? group : "", c->group, 64);
+    c->web = IsWebLink(url);
     c->key = Fnv(c->url);
     c->src = r->n;
     c->order = -1;
@@ -595,7 +617,7 @@ static void AttrVal(const char *line, const char *attr, char *out, int cap)
 static void ParseM3U(char *buf, PlResult *r)
 {
     int cap = 0;
-    char name[512] = "", num[16] = "";
+    char name[512] = "", num[16] = "", grp[128] = "";
     char *p = buf;
     if ((unsigned char)p[0] == 0xEF && (unsigned char)p[1] == 0xBB && (unsigned char)p[2] == 0xBF) p += 3;
     while (*p) {
@@ -606,12 +628,13 @@ static void ParseM3U(char *buf, PlResult *r)
         if (!_strnicmp(l, "#EXTINF", 7)) {
             AttrVal(l, "channel-number=\"", num, sizeof num);
             if (!num[0]) AttrVal(l, "tvg-chno=\"", num, sizeof num);
+            AttrVal(l, "group-title=\"", grp, sizeof grp);
             int q = 0; const char *c = l + 7; name[0] = 0;
             for (; *c; c++) { if (*c == '"') q = !q; else if (*c == ',' && !q) break; }
             if (*c == ',') { c++; while (*c == ' ') c++; strncpy(name, c, sizeof name - 1); name[sizeof name - 1] = 0; }
         } else if (*l && *l != '#') {
-            AddCh(r, &cap, name, num, l);
-            name[0] = 0; num[0] = 0;
+            AddCh(r, &cap, name, num, l, grp);
+            name[0] = 0; num[0] = 0; grp[0] = 0;
         }
         *e = save;
         p = e; while (*p == '\n' || *p == '\r') p++;
@@ -638,7 +661,7 @@ static DWORD WINAPI PlaylistThread(LPVOID pv)
         const wchar_t *base = wcsrchr(a->src, L'/'); const wchar_t *b2 = wcsrchr(a->src, L'\\');
         if (b2 > base) base = b2;
         char nm[256]; WToUtf8(base && base[1] ? base + 1 : a->src, nm, sizeof nm);
-        int cap = 0; AddCh(r, &cap, nm, "", u);
+        int cap = 0; AddCh(r, &cap, nm, "", u, "");
     }
     PostMessageW(g_main, WM_APP_PLAYLIST, (WPARAM)a->gen, (LPARAM)r);
     free(a->src); free(a);
@@ -1048,11 +1071,73 @@ static void Zap(int step)
 /* ------------------------------------------------------------------ */
 /* Liste des chaînes                                                   */
 /* ------------------------------------------------------------------ */
+/* Filtre par groupe : les playlists IPTV (group-title="France"…) peuvent compter des milliers de
+   chaînes.  Un menu au-dessus de la liste choisit le groupe affiché ; il n'apparaît que si la playlist
+   a au moins deux groupes (jamais avec la lineup d'un HDHomeRun).  Les liens YouTube / Dailymotion /
+   Twitch (pages web, souvent illisibles par libVLC) sont masqués, sauf demande (clic droit sur la liste). */
+#define GRP_NONE L"\x01"                          /* clé des chaînes sans groupe */
+static void LayoutMain(void);
+static HWND g_grpCombo;
+static wchar_t (*g_grp)[64]; static int g_ngrp, g_nweb;
+
+static const wchar_t *ChGroup(const Channel *c) { return c->group[0] ? c->group : GRP_NONE; }
+static int ChListed(const Channel *c) { return !c->hidden && (C.showWeb || !c->web); }   /* hors filtre de groupe */
+
+/* Groupes de la playlist (ordre d'apparition) ; le groupe mémorisé est oublié s'il n'existe pas ici. */
+static void BuildGroups(void)
+{
+    free(g_grp); g_grp = NULL; g_ngrp = 0; g_nweb = 0;
+    if (g_nch) g_grp = (wchar_t (*)[64])malloc(sizeof *g_grp * (size_t)g_nch);
+    int named = 0;
+    for (int i = 0; g_grp && i < g_nch; i++) {
+        if (g_ch[i].web) g_nweb++;
+        const wchar_t *k = ChGroup(&g_ch[i]);
+        if (g_ch[i].group[0]) named = 1;
+        int j = 0; while (j < g_ngrp && wcscmp(g_grp[j], k)) j++;
+        if (j == g_ngrp) wcscpy(g_grp[g_ngrp++], k);
+    }
+    if (!named || g_ngrp < 2) g_ngrp = 0;             /* pas de groupes : pas de filtre */
+    int found = 0;
+    for (int j = 0; j < g_ngrp; j++) if (!wcscmp(g_grp[j], C.group)) found = 1;
+    if (!found) C.group[0] = 0;
+}
+
 static void RebuildVisible(void)
 {
     free(g_vis); g_vis = (int *)malloc(sizeof(int) * (size_t)(g_nch + 1)); g_nvis = 0;
     if (!g_vis) return;
-    for (int i = 0; i < g_nch; i++) if (!g_ch[i].hidden) g_vis[g_nvis++] = i;
+    for (int i = 0; i < g_nch; i++)
+        if (ChListed(&g_ch[i]) && (!C.group[0] || !wcscmp(ChGroup(&g_ch[i]), C.group))) g_vis[g_nvis++] = i;
+}
+
+/* Remplit le menu des groupes (« Toutes les chaînes (2190) », « France (33) »…) et le montre ou le cache. */
+static void FillGroupCombo(void)
+{
+    if (!g_grpCombo) return;
+    SendMessageW(g_grpCombo, WM_SETREDRAW, FALSE, 0);
+    SendMessageW(g_grpCombo, CB_RESETCONTENT, 0, 0);
+    int sel = 0;
+    if (g_ngrp) {
+        int *cnt = (int *)calloc((size_t)g_ngrp, sizeof(int)), all = 0;
+        for (int i = 0; cnt && i < g_nch; i++) {
+            if (!ChListed(&g_ch[i])) continue;
+            all++;
+            const wchar_t *k = ChGroup(&g_ch[i]);
+            for (int j = 0; j < g_ngrp; j++) if (!wcscmp(g_grp[j], k)) { cnt[j]++; break; }
+        }
+        wchar_t t[160];
+        swprintf(t, 160, TR(L"Toutes les chaînes (%d)"), all);
+        SendMessageW(g_grpCombo, CB_ADDSTRING, 0, (LPARAM)t);
+        for (int j = 0; j < g_ngrp; j++) {
+            swprintf(t, 160, L"%ls (%d)", wcscmp(g_grp[j], GRP_NONE) ? g_grp[j] : TR(L"Sans groupe"), cnt ? cnt[j] : 0);
+            SendMessageW(g_grpCombo, CB_ADDSTRING, 0, (LPARAM)t);
+            if (!wcscmp(g_grp[j], C.group)) sel = j + 1;
+        }
+        free(cnt);
+    }
+    SendMessageW(g_grpCombo, CB_SETCURSEL, (WPARAM)sel, 0);
+    SendMessageW(g_grpCombo, WM_SETREDRAW, TRUE, 0);
+    InvalidateRect(g_grpCombo, NULL, TRUE);
 }
 
 /* Libellé « numéro   nom » d'une chaîne de la liste. */
@@ -1157,6 +1242,7 @@ static void ChannelsChanged(int save)
 {
     RebuildVisible();
     FillMainList();
+    FillGroupCombo();                       /* nombres de chaînes par groupe */
     if (save) SaveChannels();
     UpdateStatus();
 }
@@ -1209,7 +1295,10 @@ static void OnPlaylist(WPARAM gen, PlResult *r)
         c->order  = IniInt(L"Ordre", k, -1);
     }
     if (g_nch > 1) qsort(g_ch, (size_t)g_nch, sizeof(Channel), CmpCh);
+    BuildGroups();
     RebuildVisible();
+    FillGroupCombo();
+    LayoutMain();                           /* menu des groupes affiché ou non */
 
     if (curKey) for (int i = 0; i < g_nch; i++) if (g_ch[i].key == curKey) { g_cur = i; break; }
     if (pipKey) for (int i = 0; i < g_nch; i++) if (g_ch[i].key == pipKey) { g_pipCh = i; break; }
@@ -1224,7 +1313,7 @@ static void OnPlaylist(WPARAM gen, PlResult *r)
     } else if (g_cur < 0) {
         int pick = -1;
         if (C.resume && C.lastkey)
-            for (int i = 0; i < g_nch; i++) if (g_ch[i].key == C.lastkey && !g_ch[i].hidden) { pick = i; break; }
+            for (int i = 0; i < g_nch; i++) if (g_ch[i].key == C.lastkey && VisPos(i) >= 0) { pick = i; break; }
         if (pick < 0 && g_nvis) pick = g_vis[0];
         wchar_t t[64]; swprintf(t, 64, TR(L"%d chaînes"), g_nch); SetState(t);
         if (pick >= 0 && C.autoplay) PlayChannel(pick);
@@ -1503,7 +1592,10 @@ static void LayoutMain(void)
     HDWP d = BeginDeferWindowPos(24);
     if (g_banner) d = DeferWindowPos(d, g_banner, NULL, b, b, W, banH, SWP_NOZORDER | SWP_NOACTIVATE | (banH ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
     d = DeferWindowPos(d, g_host, NULL, b, b + banH, W - listW, H - barH - banH, SWP_NOZORDER | SWP_NOACTIVATE);
-    d = DeferWindowPos(d, g_list, NULL, b + W - listW, b + banH, listW, H - barH - banH,
+    int grpH = (listW && g_ngrp) ? S(32) : 0;           /* menu des groupes au-dessus de la liste */
+    if (g_grpCombo) d = DeferWindowPos(d, g_grpCombo, NULL, b + W - listW + S(4), b + banH + S(3), listW - S(8), S(400),
+                                       SWP_NOZORDER | SWP_NOACTIVATE | (grpH ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
+    d = DeferWindowPos(d, g_list, NULL, b + W - listW, b + banH + grpH, listW, H - barH - banH - grpH,
                        SWP_NOZORDER | SWP_NOACTIVATE | (listW ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
 
     /* Barre : on masque les éléments les moins prioritaires si la place manque. */
@@ -1687,6 +1779,7 @@ static void OnVlcEvent(int type, int val)
 #include "pip.h"
 #include "tracks.h"
 #include "tuner.h"
+#include "discover.h"
 #include "update.h"
 
 static void OpenSettings(int editCh);
@@ -2081,6 +2174,8 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         ShowWindow(g_vlcDlBtn, SW_HIDE); ShowWindow(g_vlcRetryBtn, SW_HIDE);
         g_list = Mk(h, WC_LISTBOXW, NULL, LBS_NOTIFY | LBS_NOINTEGRALHEIGHT | LBS_OWNERDRAWFIXED | LBS_HASSTRINGS | WS_VSCROLL | WS_TABSTOP, 0, IDC_LIST);
         SetWindowTheme(g_list, L"Explorer", NULL);
+        g_grpCombo = Mk(h, WC_COMBOBOXW, NULL, CBS_DROPDOWNLIST | WS_VSCROLL, 0, IDC_GROUP);
+        ShowWindow(g_grpCombo, SW_HIDE);
         SetWindowSubclass(g_list, ListSubProc, 1, 0);
         g_tip = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, NULL, WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX,
                                 0, 0, 0, 0, h, NULL, g_hi, NULL);
@@ -2246,6 +2341,15 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
         case IDM_HIDE:
             if (g_menuCh >= 0 && g_menuCh < g_nch) { g_ch[g_menuCh].hidden = 1; ChannelsChanged(1); if (g_set) FillLV(); }
             break;
+        case IDM_SHOWWEB: C.showWeb = !C.showWeb; ChannelsChanged(0); break;
+        case IDC_GROUP:                         /* groupe choisi : la liste n'affiche que ses chaînes */
+            if (HIWORD(w) == CBN_SELCHANGE) {
+                int s = (int)SendMessageW(g_grpCombo, CB_GETCURSEL, 0, 0);
+                if (s <= 0 || s > g_ngrp) C.group[0] = 0; else wcscpy(C.group, g_grp[s - 1]);
+                RebuildVisible(); FillMainList(); UpdateStatus();
+                if (VisPos(g_cur) >= 0) SendMessageW(g_list, LB_SETTOPINDEX, (WPARAM)VisPos(g_cur), 0);
+            } else if (HIWORD(w) == CBN_CLOSEUP) SetFocus(g_main);   /* les touches reviennent au lecteur */
+            break;
         }
         return 0; }
 
@@ -2269,6 +2373,10 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
             AppendMenuW(m, MF_STRING | (g_engine != ENG_VLC ? MF_GRAYED : 0), IDM_PIPCH, TR(L"\u25F2  Regarder en PIP"));
             AppendMenuW(m, MF_STRING, IDM_RENAME, TR(L"Renommer…"));
             AppendMenuW(m, MF_STRING, IDM_HIDE, TR(L"Masquer de la liste"));
+            if (g_nweb) {                       /* playlist IPTV avec des liens de sites vidéo */
+                AppendMenuW(m, MF_SEPARATOR, 0, NULL);
+                AppendMenuW(m, MF_STRING | (C.showWeb ? MF_CHECKED : 0), IDM_SHOWWEB, TR(L"Afficher les liens YouTube, Dailymotion et Twitch (souvent illisibles)"));
+            }
             TrackPopupMenu(m, TPM_RIGHTBUTTON, p.x, p.y, 0, h, NULL);
             DestroyMenu(m);
             return 0;
@@ -2342,6 +2450,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT msg, WPARAM w, LPARAM l)
     case WM_APP_PIPEVENT: OnPipEvent((int)w, (int)l); return 0;
     case WM_APP_TUNER: OnTuner((TunerInfo *)l); return 0;
     case WM_APP_UPD: OnUpd((UpdInfo *)l); return 0;
+    case WM_APP_DISC: OnDisc((DiscResult *)l); return 0;
     case WM_APP_SCAN: OnScan(w, l); return 0;
     case WM_COPYDATA:
         if (g_engine && l) { MpcOnCopyData((const COPYDATASTRUCT *)l); return TRUE; }
@@ -2428,7 +2537,8 @@ static int LayoutSettings(int W, int H, BOOL apply)
       P(U.url, x, y, lw - bw - rw - 2 * sp, rh);
       P(U.urlBr, x + lw - bw - rw - sp, y, bw, rh);
       P(U.reload, x + lw - rw, y, rw, rh); }
-    y += rh + SS(8);
+    y += rh + SS(6);
+    P(U.detect, x, y, SS(230), rh); y += rh + SS(8);      /* recherche des HDHomeRun du réseau */
     P(U.guideChk, x, y, SS(190), rh);
     P(U.guideInfo, x + SS(196), y + (rh - lh) / 2, lw - SS(196), lh);
     y += rh + SS(14);
@@ -2650,6 +2760,7 @@ static void CreateSettingsControls(HWND h)
     U.url    = Mk(h, WC_EDITW, L"", ES_AUTOHSCROLL | WS_TABSTOP, WS_EX_CLIENTEDGE, IDS_URL);
     U.urlBr  = Mk(h, WC_BUTTONW, L"…", BS_PUSHBUTTON | WS_TABSTOP, 0, IDS_URLBROWSE);
     U.reload = Mk(h, WC_BUTTONW, TR(L"Recharger"), BS_PUSHBUTTON | WS_TABSTOP, 0, IDS_RELOAD);
+    U.detect = Mk(h, WC_BUTTONW, TR(L"Détecter le HDHomeRun"), BS_PUSHBUTTON | WS_TABSTOP, 0, IDS_DETECT);
 
     U.lblCache = Mk(h, WC_STATICW, TR(L"Cache réseau (ms)"), SS_LEFT, 0, -1);
     U.cache    = Mk(h, WC_EDITW, L"", ES_NUMBER | ES_AUTOHSCROLL | WS_TABSTOP, WS_EX_CLIENTEDGE, IDS_CACHE);
@@ -2835,6 +2946,7 @@ static void SettingsCommand(HWND h, int id, int code)
         GuideLoad();
         SaveConfig();
         break;
+    case IDS_DETECT: DiscStart(); break;
     case IDS_URLBROWSE: {
         wchar_t f[MAX_PATH] = L"";
         if (PickFile(h, L"Playlists (*.m3u;*.m3u8)\0*.m3u;*.m3u8\0Vidéos\0*.ts;*.mkv;*.mp4;*.avi;*.mpg\0Tous les fichiers\0*.*\0",

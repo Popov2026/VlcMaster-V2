@@ -22,6 +22,11 @@ la page du projet propose un bouton de téléchargement par système.
 
 - **Vidéo intégrée** : libVLC dessine l'image dans la fenêtre (Direct3D 11, décodage matériel).
 - **Liste des chaînes automatique** : lue depuis `lineup.m3u` (noms et numéros du tuner), affichable / masquable.
+- **Playlists IPTV (http ou https)** : avec une playlist qui classe ses chaînes par groupe (`group-title`, par exemple
+  la liste Free-TV : 2190 chaînes rangées par pays), un **menu au-dessus de la liste** choisit le groupe affiché
+  (« France (25) »…) ; le zapping et les numéros restent dans ce groupe, et le choix est mémorisé. Les liens YouTube,
+  Dailymotion et Twitch (des pages web, que VLC ne sait souvent pas lire) sont masqués ; clic droit sur la liste pour les
+  afficher. Avec la lineup d'un HDHomeRun, rien ne change.
 - **Zapping instantané** : ← → , molette, saisie du numéro au clavier ; les appuis rapides sont regroupés.
 - **HDHomeRun** (Paramètres › Source) : modèle, nombre de tuners, version du firmware et **mise à jour du firmware disponible**
   (signalée aussi au démarrage) ; bouton **Rechercher les chaînes** (scan du tuner avec progression, liste rechargée à la fin) et
@@ -55,7 +60,8 @@ la page du projet propose un bouton de téléchargement par système.
   - MPC est détecté automatiquement (registre, `Program Files`, K-Lite), sinon indiquez son exécutable ; le changement de moteur relance l'appli ;
   - MPC ouvre les flux réseau plus lentement que VLC : compter environ 10 s par changement de chaîne avec MPC-BE, contre 1 à 2 s avec VLC.
 - **Bouton ⚙ Paramètres** : fenêtre compacte à **onglets** (Source, Lecture, Interface, Moteur, Chaînes ; Ctrl+Tab pour passer de l'un à l'autre), toujours ajustée à l'écran, réglages **appliqués immédiatement** :
-  - source : URL ou fichier de la playlist, rechargement à chaud ;
+  - source : URL ou fichier de la playlist, rechargement à chaud ; bouton **Détecter le HDHomeRun** : cherche les tuners du
+    réseau local (protocole de découverte SiliconDust, UDP 65001) et remplit l'adresse tout seul (menu si plusieurs tuners) ;
   - lecture : cache réseau, décodage matériel (Auto / D3D11VA / DXVA2 / logiciel), désentrelacement (Yadif, Yadif 2x, Bob…), format d'image, synchro audio, pause en différé ;
   - interface : premier plan, reprise de la dernière chaîne, lecture automatique, liste latérale ;
   - chaînes : renommer (F2), masquer (case à cocher), réordonner (▲ ▼ ou Alt+↑/↓), nom d'origine ;

@@ -6,7 +6,7 @@ if not exist build mkdir build
 windres -O coff res\app.rc -o build\app.res.o || goto :err
 gcc -std=c11 -O2 -Wall -Wextra -Wno-missing-field-initializers -municode -mwindows -static ^
     src\vlcmaster.c build\app.res.o -o build\HomeRunPlayer.exe ^
-    -lcomctl32 -lcomdlg32 -lwininet -luxtheme -lgdi32 -luser32 -ladvapi32 -lshell32 -lole32 -lws2_32 || goto :err
+    -lcomctl32 -lcomdlg32 -lwininet -luxtheme -lgdi32 -luser32 -ladvapi32 -lshell32 -lole32 -lws2_32 -liphlpapi || goto :err
 echo OK : build\HomeRunPlayer.exe
 exit /b 0
 :err

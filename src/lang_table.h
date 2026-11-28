@@ -464,3 +464,24 @@
     L"HomeRun Player zeigt das Bild mit VLC (kostenlos) an. Laden Sie es herunter, installieren Sie es und kehren Sie hierher zurück: Es wird automatisch erkannt.",
     L"HomeRun Player usa VLC (gratuito) per mostrare l'immagine. Scaricatelo e installatelo, poi tornate qui: verrà rilevato automaticamente.",
     L"O HomeRun Player usa o VLC (gratuito) para mostrar a imagem. Transfira-o e instale-o, depois volte aqui: será detetado automaticamente." } },
+
+/* ---- Filtre par groupe (playlists IPTV) ---- */
+{ { L"Toutes les chaînes (%d)", L"All channels (%d)", L"Todos los canales (%d)", L"Alle Sender (%d)", L"Tutti i canali (%d)", L"Todos os canais (%d)" } },
+{ { L"Sans groupe", L"No group", L"Sin grupo", L"Ohne Gruppe", L"Senza gruppo", L"Sem grupo" } },
+{ { L"Afficher les liens YouTube, Dailymotion et Twitch (souvent illisibles)",
+    L"Show YouTube, Dailymotion and Twitch links (often unplayable)",
+    L"Mostrar los enlaces de YouTube, Dailymotion y Twitch (a menudo ilegibles)",
+    L"YouTube-, Dailymotion- und Twitch-Links anzeigen (oft nicht abspielbar)",
+    L"Mostra i link YouTube, Dailymotion e Twitch (spesso illeggibili)",
+    L"Mostrar as ligações YouTube, Dailymotion e Twitch (muitas vezes ilegíveis)" } },
+
+/* ---- Détection du HDHomeRun (discover.h) ---- */
+{ { L"Détecter le HDHomeRun", L"Detect HDHomeRun", L"Detectar el HDHomeRun", L"HDHomeRun suchen", L"Rileva l'HDHomeRun", L"Detetar o HDHomeRun" } },
+{ { L"Recherche des HDHomeRun sur le réseau local…", L"Looking for HDHomeRun tuners on the local network…", L"Buscando HDHomeRun en la red local…", L"Suche nach HDHomeRun im lokalen Netzwerk…", L"Ricerca degli HDHomeRun sulla rete locale…", L"A procurar HDHomeRun na rede local…" } },
+{ { L"HDHomeRun trouvé : %ls (%hs)", L"HDHomeRun found: %ls (%hs)", L"HDHomeRun encontrado: %ls (%hs)", L"HDHomeRun gefunden: %ls (%hs)", L"HDHomeRun trovato: %ls (%hs)", L"HDHomeRun encontrado: %ls (%hs)" } },
+{ { L"Aucun HDHomeRun trouvé sur le réseau local.\n\nVérifiez que le tuner est allumé et branché sur le même réseau que ce PC, et que le pare-feu de Windows autorise HomeRun Player (réseau privé).",
+    L"No HDHomeRun found on the local network.\n\nCheck that the tuner is on and connected to the same network as this PC, and that Windows Firewall allows HomeRun Player (private network).",
+    L"No se encontró ningún HDHomeRun en la red local.\n\nCompruebe que el sintonizador está encendido y conectado a la misma red que este PC, y que el firewall de Windows permite HomeRun Player (red privada).",
+    L"Kein HDHomeRun im lokalen Netzwerk gefunden.\n\nPrüfen Sie, ob der Tuner eingeschaltet und mit demselben Netzwerk wie dieser PC verbunden ist und ob die Windows-Firewall HomeRun Player zulässt (privates Netzwerk).",
+    L"Nessun HDHomeRun trovato sulla rete locale.\n\nVerificate che il sintonizzatore sia acceso e collegato alla stessa rete di questo PC, e che il firewall di Windows consenta HomeRun Player (rete privata).",
+    L"Nenhum HDHomeRun encontrado na rede local.\n\nVerifique se o sintonizador está ligado e na mesma rede que este PC, e se a firewall do Windows permite o HomeRun Player (rede privada)." } },
